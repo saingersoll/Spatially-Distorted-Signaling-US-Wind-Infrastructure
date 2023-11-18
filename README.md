@@ -9,5 +9,6 @@ The SOP covered in this documentation include:
 - Mapping
 - Randomly sampling
 - Multivariate Linear Regression Models
+- Interpretting Omitted Variable Bias (OVB)
 - Logit & Log Odds
 
