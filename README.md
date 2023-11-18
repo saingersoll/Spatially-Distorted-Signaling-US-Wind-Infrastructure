@@ -7,7 +7,7 @@ The SOP covered in this documentation include:
 - Merging datasets
 - Creating buffers
 - Mapping & Coordinate Reference Systems (CRS)
-- Randomly sampling
+- Random sampling
 - Multivariate Linear Regression Models
 - Interpretting Omitted Variable Bias (OVB)
 - Logit & Log Odds
