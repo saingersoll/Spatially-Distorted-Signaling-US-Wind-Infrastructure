@@ -6,7 +6,7 @@ The SOP covered in this documentation include:
 - Prelimiary data observations and cleaning tactics
 - Merging datasets
 - Creating buffers
-- Mapping
+- Mapping & Coordinate Reference Systems (CRS)
 - Randomly sampling
 - Multivariate Linear Regression Models
 - Interpretting Omitted Variable Bias (OVB)
