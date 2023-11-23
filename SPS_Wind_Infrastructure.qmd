@@ -233,3 +233,22 @@ If we plot our multipolygon, is it what we expect?
 plot(mainland_alaska)
 plot(states)
 ```
+#### Creating a Vectorized Mask
+
+`st_crop`
+
+This data did not subset properly, the output was an empty df with the proper column names
+
+```{r}
+states_mask <- st_crop(ejscreen, states)
+
+states_mask <- states_mask %>% 
+  st_transform(4326) %>% 
+  st_make_valid(states_mask)
+```
+
+*Preliminary Plot of Cropped EJScreen*
+
+```{r}
+plot(states_mask)
+```
