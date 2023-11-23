@@ -1,0 +1,118 @@
+---
+title: "SPS_Wind_Infrastructre"
+author: "Sofia Ingersoll"
+format: html
+editor: visual
+---
+In this documentation, the data utilized is the [US Wind Data](https://dataverse.harvard.edu/file.xhtml?fileId=7339850&version=1.0), this data is associated with the "Replication Data for: Prevalence and predictors of wind energy opposition in North America", <https://doi.org/10.7910/DVN/LE2V0R>, Harvard Dataverse, V1, 2023. The collaborators on that project include: Stokes, Leah; Franzblau, Emma; Lovering, Jessica R.; Miljanich, Chris.
+
+\~ include more about what the data is about and the outcomes of making visualization \~
+
+Analysis of these areas will provide insight into local resistance and spatially distorted signalling in relation to wind power infrastructure and climate policy.
+
+### Loading Libraries
+
+The following libraries were selected based on their functionality and ability to optimize our data for mapping.
+
+```{r, message = FALSE}
+# Loading Libraries
+library(tidyverse)        # essential r package 
+library(sf)               # package simplifies spatial dataframes
+library(raster)
+library(tmap)
+library(terra)
+library(stars)
+library(smoothr)          # aesthetic and visual aid for buffers created
+```
+
+### Read in the Data
+
+To simplify the following step, it is important to organize your folders in a way that makes sense for your workflow. In many cases, the data sets we work with are typically too large to be uploaded to GitHub. As a result, a common practice is storing your data in a folder, directly outside of your repository in a folder labeled "data".
+
+The code chunk below for `read.csv` demonstrates how to exit your current location using `..` and enter the desired folder location using `/`. It is important that your file path does not contain any spaces and is directly reflective of the file path for the data you wish to read in.
+
+#### U.S. Wind Data
+
+```{r}
+# reading in & storing data
+wind_data <- read.csv("../data/wind_data/wind_data_usa.csv")  
+```
+
+##### Confirm the Data Loaded Properly
+
+```{r}
+head(wind_data)                  # displays the first 6 rows of the data
+                                 # along with all of the columns 
+```
+
+#### EJ Screen Data
+
+```{r include=TRUE, eval=FALSE, warning=FALSE, error=FALSE}
+ejscreen <- st_read("../data/EJSCREEN_2023_BG_StatePct_with_AS_CNMI_GU_VI.gdb",
+                    quiet = TRUE)
+# reads in raster data using the sf package st_read function
+# the quiet T/F input refers to information output after importing data
+```
+
+**Make sure to compare the pros and cons of 3857 CRS vs 4326**
+
+```{r}
+# this data set has a crs of 3857
+crs(ejscreen)
+
+# transforming the crs to 4326
+ejscreen <- st_transform(ejscreen, 3857) %>% 
+  st_make_valid()
+
+# confirming last step was successful
+glimpse(crs(ejscreen))
+```
+## Wrangling & Subsetting
+
+### **Converting lat/long into Raster Data (i.e. sticky geometries)**
+
+Below we will use the package `sf` to convert the lat/long data into a raster geometry column. In this single line, we will also be assigning the CRS EPSG:4326 to the sf data frame. Coordinate Reference Systems, CRS, are required in order for the data to be projected onto a map. The CRS was selected because it provides a relatively proportionate display of the United States. We are open to suggestions regarding our CRS if a different project better fits our data.
+
+```{r}
+wind_sf <- wind_data %>%             # calls desired dataset
+  st_as_sf(coords = c("longitude", "latitude"), crs = 3857) 
+                                     # creates geometry column with desired crs 
+
+glimpse(crs(wind_sf))                  # output should reveal WGS84, EPSG:4326
+```
+
+#### Check-point
+
+Let's stop and see if our outputs are what we expect.
+
+Were the lat/long columns correctly converted into a geometry column?
+
+`setdiff()` is a way to quickly determine the differences between two data sets.
+
+```{r}
+setdiff(wind_data, wind_sf)
+```
+
+```{r}
+# checking column names
+print(colnames(wind_data))
+
+print(colnames(wind_sf))
+```
+
+# Initial Visualization of the Data
+
+Using the base R function `plot()`, we can see that the geometries stored by this data set correlate to the locations of wind infrastructure plants throughout the United States. In order to visualize these locations with respect to state and county jurisdictions, we'll need to utilize another data set to create a base layer for our map.
+
+```{r}
+# First visual of the U.S. wind data provided by the geometry points
+plot(wind_sf$geometry)
+```
+## Creating a Base Map Layer
+
+```{r}
+ggplot() +
+  geom_sf(data = ejscreen) +
+  geom_sf(data = wind_sf) 
+```
+The issue with mapping the ejscreen data is the inclusion of US territories that are not considered in the U.S. Wind Data. Many of these territories are categorized under Region Code 9. There are a couple of ways to approach this issue. Below, we will use the `st_crop` strategy to remove unwanted locations to isolate our region of interest (roi).
