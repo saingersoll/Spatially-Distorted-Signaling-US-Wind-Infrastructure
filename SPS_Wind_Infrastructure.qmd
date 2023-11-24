@@ -61,8 +61,8 @@ ejscreen <- st_read("../data/EJSCREEN_2023_BG_StatePct_with_AS_CNMI_GU_VI.gdb",
 crs(ejscreen)
 
 # transforming the crs to 4326
-ejscreen <- st_transform(ejscreen, 3857) %>% 
-  st_make_valid()
+#ejscreen <- st_transform(ejscreen, 3857) %>% 
+  #st_make_valid()
 
 # confirming last step was successful
 glimpse(crs(ejscreen))
@@ -90,14 +90,8 @@ Were the lat/long columns correctly converted into a geometry column?
 `setdiff()` is a way to quickly determine the differences between two data sets.
 
 ```{r}
-setdiff(wind_data, wind_sf)
-```
-
-```{r}
-# checking column names
-print(colnames(wind_data))
-
-print(colnames(wind_sf))
+setdiff(colnames(wind_data), colnames(wind_sf))
+setdiff(colnames(wind_sf), colnames(wind_data))
 ```
 
 # Initial Visualization of the Data
