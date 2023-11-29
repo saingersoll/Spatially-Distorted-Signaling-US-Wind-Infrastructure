@@ -117,7 +117,7 @@ The issue with mapping the ejscreen data is the inclusion of US territories that
 
 ## Isolating Region of Interest
 
-### Create a Mask using US Country Coordinates
+### Approach 1: Create a Mask using US Country Coordinates
 
 [Geojson Coordinate Mapper for Masks](http://geojson.io/#map=2.59/42.2/-96.48)
 
@@ -265,31 +265,36 @@ states_mask <- states_mask %>%
 ```{r}
 plot(states_within)
 ```
-**improperly subset, so unable to map**
-```{r}
-ggplot() +
-  geom_sf(data = states_mask) +
-  geom_sf(data = wind_sf) +
-  theme_bw()
-```
+
+### Approach 2: Filtering out Unwanted Region
+
+[Region Codes](https://ncsesdata.nsf.gov/docs/location.html) reveals the various regions throughout the US that are identifiable using codes between 1:10. US Territories are categorized under the Pacific Region Code, 9. Other states like CA, OR, HA, AK, and WA are also in the Pacific Region.
 
 ```{r}
-ggplot() +
-  geom_sf(data = states_mask) +
-  geom_sf(data = wind_sf) +
-  theme_bw() +
-  labs(title = "US Wind Infrastructure Plants") +
-annotation_scale(plot_unit = "km") +                     # add scale bar
-  annotation_north_arrow(                                # add north arrow
-   location = "tr",
-    pad_x = unit(0.2, "in"),
-    pad_y = unit(0.2, "in"),
-    style = ggspatial::north_arrow_nautical(             # customize north arrow
-      fill = c("grey40", "white"),
-      line_col = "grey20"
-    )
-  )
+unique(ejscreen$REGION)
 ```
+
+#### Identifying the State Names for US Territories
+
+To properly filter out these unwanted observations, it's best to identify the exact names of the unwanted regions. We can do this using the `unique` function on the state_name column.
+
+```{r}
+print(unique(ejscreen$STATE_NAME))
+```
+
+#### Removing Regions Outside of Interest
+
+**not subsetting properly, maybe use** `subset()`
+
+```{r}
+nonmapping_territories <- c('Puerto Rico', 'Guam', 'Virgin Islands', 'Northern Mariana IS', 'American Samoa')
+us_basemap_data <- ejscreen %>% 
+  filter(STATE_NAME != nonmapping_territories) %>% 
+  filter(REGION != 10) %>% 
+  group_by(STATE_NAME)
+```
+
+------------------------------------------------------------------------
 
 ## Subsetting Wind Plant Locations in US
 
@@ -317,6 +322,7 @@ wind_buffer <- st_buffer(wind_states$plant_name, dist = 3000) # creates a 3km bu
 plot(wind_combined&geometry)    
 plot(wind_buffer)
 ```
+
 ## Randomly Selecting Addresses Within Buffer Zones
 
 ### Creating a subset containing all houses in the buffer regions
@@ -340,6 +346,35 @@ regional_buffer_homes <-  buffer_homes %>%
   filter(plant_name %in% c("big windy"))
 ```
 
+## Visualizing
+
+**improperly subset, so unable to map**
+
+```{r}
+ggplot() +
+  geom_sf(data = states_mask) +
+  geom_sf(data = wind_sf) +
+  theme_bw()
+```
+
+```{r}
+ggplot() +
+  geom_sf(data = states_mask) +
+  geom_sf(data = wind_sf) +
+  theme_bw() +
+  labs(title = "US Wind Infrastructure Plants") +
+annotation_scale(plot_unit = "km") +                     # add scale bar
+  annotation_north_arrow(                                # add north arrow
+   location = "tr",
+    pad_x = unit(0.2, "in"),
+    pad_y = unit(0.2, "in"),
+    style = ggspatial::north_arrow_nautical(             # customize north arrow
+      fill = c("grey40", "white"),
+      line_col = "grey20"
+    )
+  )
+```
+
 ### Selecting n Random Samples
 
 ```{r}
@@ -360,7 +395,7 @@ print(dim(random_sample),'rows were randomly selected for sampling')
 ### Variables of interest:
 
 | **Wind Infrastructure Attributes** | **Regional Attributes** | **Legislative Action** |
-|------------------------|------------------------|------------------------|
+|------------------------------------|-------------------------|------------------------|
 | n_turbs                            | med_inc                 | legislation_use        |
 | status                             | is_anti_wind            | protesters_mean        |
 | year                               | pop_den                 | courts_use             |
