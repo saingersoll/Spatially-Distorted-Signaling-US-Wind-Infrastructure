@@ -107,6 +107,8 @@ plot(wind_sf$geometry)
 
 # Creating a Base Map Layer
 
+### takes forever to load, don't run bc breaks r session
+
 ```{r}
 ggplot() +
   geom_sf(data = ejscreen) +
@@ -240,6 +242,12 @@ plot(states)
 plot(states_bbox)
 ```
 
+# \* OH HELP STARTING POINT \*
+
+-   How to work with sgbp (spatial geometry binary predicate lists)
+-   Is there a more efficient way to graph ejscreen + wind_sf for checks?
+-   check buffer psuedocode briefly too
+
 #### Creating a Vectorized Mask
 
 `st_crop`
@@ -253,11 +261,29 @@ states_within <- st_within(ejscreen$Shape, states_bbox)
  # diag() %>% # transforms sgbp list into vector
  # st_crop(ejscreen, states_within) 
 
+# this approach provides an empty sf object
+states_within2 <- ejscreen[states_bbox, op = st_within] 
+# states_within3 <- ejscreen$Shape[states_bbox, op = st_within] # wrong dims
+
 states_mask <- st_crop(ejscreen, states)
 
+# why transforming crs here from crs = 3857?
 states_mask <- states_mask %>% 
-  st_transform(4326) %>% 
+  st_transform(3857) %>% 
   st_make_valid(states_mask)
+```
+
+Another idea for subsetting relationship is `wind_sf$cen_tract_id` and `ejscreen$ID`
+
+-   I know the dimensions are not the same, so I want to keep all the ejscreen tracts that are within the wind_sf tracts
+
+```{r}
+# dims not happy
+tracts_within <- ejscreen$ID[wind_sf$cen_tract_id, op = st_within]
+
+tracts_within2 <- st_within(ejscreen$ID, wind_sf$cen_tract_id)
+
+
 ```
 
 *Preliminary Plot of Cropped EJScreen*
@@ -286,15 +312,28 @@ print(unique(ejscreen$STATE_NAME))
 
 **not subsetting properly, maybe use** `subset()`
 
+%not in%
+
 ```{r}
 nonmapping_territories <- c('Puerto Rico', 'Guam', 'Virgin Islands', 'Northern Mariana IS', 'American Samoa')
+
 us_basemap_data <- ejscreen %>% 
-  filter(STATE_NAME != nonmapping_territories) %>% 
+  filter(!STATE_NAME %in% nonmapping_territories) %>% 
   filter(REGION != 10) %>% 
   group_by(STATE_NAME)
+
+plot(us_basemap_data)
 ```
 
 ------------------------------------------------------------------------
+
+Dissolve by state: ejscreen to simplify graphing: st_union(group_by state / dissolve
+
+(USAboundaries)
+
+```         
+states %>%   group_by(group_var) %>%    summarize(geometry = st_union(geometry))
+```
 
 ## Subsetting Wind Plant Locations in US
 
@@ -382,8 +421,10 @@ annotation_scale(plot_unit = "km") +                     # add scale bar
 set.seed(1)         
 
  # collect observations and draw a random sample
+# sf object, each row is house
+# group by wind turbine id - plant_n
 random_sample <- buffer_homes %>%   
-  group_by() %>% 
+  #group_by() %>% 
   slice_sample(n = 1000)
 
 # confirms 1000 rows pulled
@@ -395,7 +436,7 @@ print(dim(random_sample),'rows were randomly selected for sampling')
 ### Variables of interest:
 
 | **Wind Infrastructure Attributes** | **Regional Attributes** | **Legislative Action** |
-|------------------------------------|-------------------------|------------------------|
+|------------------------------|---------------------|---------------------|
 | n_turbs                            | med_inc                 | legislation_use        |
 | status                             | is_anti_wind            | protesters_mean        |
 | year                               | pop_den                 | courts_use             |
@@ -442,7 +483,7 @@ What are the estimated outcomes for randomly sampled regions within the buffer z
 
 ##### Ex. 1: Legislation Use Estimation
 
-When wind turbines are not operational, and all other variables are held constant, the $$\beta_0$$ represents the estimated likelihood that legislation would be utilized by the random sample roughly `amount` times. $$\beta_1$$ tells us the increase in probability that legislation would be used when turbines are operational. For every average unit increase in median income, $$\beta_2$$ predicts `amount here` will increase the use of legislation. Finally, for $$\beta_3$$ , for every average unit increase in age, a estimated `amount` is predicted to increase the use of legislation.
+When wind turbines are not operational, and all other variables are held constant, the $$\beta_0$$ represents the estimated likelihood that legislation would be utilized by the random sample roughly `amount` times. $\beta_1$ tells us the increase in probability that legislation would be used when turbines are operational. For every average unit increase in median income, $\beta_2$ predicts `amount here` will increase the use of legislation. Finally, for $$\beta_3$$ , for every average unit increase in age, a estimated `amount` is predicted to increase the use of legislation.
 
 ```{r}
 legislation_est <- glm(legislation_use ~ status + med_inc + median_age,
