@@ -16,6 +16,10 @@ Analysis of these areas will provide insight into local resistance and spatially
 The following libraries were selected based on their functionality and ability to optimize our data for mapping.
 
 ```{r, message = FALSE}
+# Installs USA boundaries for plotting
+remotes::install_github("ropensci/USAboundaries")
+remotes::install_github("ropensci/USAboundariesData")
+
 # Loading Libraries
 library(tidyverse)        # essential r package 
 library(sf)               # package simplifies spatial dataframes
@@ -23,7 +27,9 @@ library(raster)
 library(tmap)
 library(terra)
 library(stars)
+library(remotes)
 library(smoothr)          # aesthetic and visual aid for buffers created
+library(USAboundaries) 
 ```
 
 ### Read in the Data
@@ -46,33 +52,16 @@ head(wind_data)                  # displays the first 6 rows of the data
                                  # along with all of the columns 
 ```
 
-#### EJ Screen Data
+#### State Borders
 
 ```{r include=TRUE, eval=FALSE, warning=FALSE, error=FALSE}
-ejscreen <- st_read("../data/EJSCREEN_2023_BG_StatePct_with_AS_CNMI_GU_VI.gdb",
-                    quiet = TRUE)
-# reads in raster data using the sf package st_read function
-# the quiet T/F input refers to information output after importing data
-
-
-# simplifying dataset
-nonmapping_territories <- c('Puerto Rico', 'Guam', 'Virgin Islands', 'Northern Mariana IS', 'American Samoa')
-
-# unionizing geometries of states to simplify plotting
-us_census <- ejscreen %>% 
-  filter(!STATE_NAME %in% nonmapping_territories) %>% 
-  group_by(STATE_NAME)  %>% 
- summarize(geometry = st_union(Shape))
-
-# visualizing shows still need to crop
-plot(us_census)
+states_borders <- us_states()
+plot(st_geometry(states_borders))
 ```
 
-**Make sure to compare the pros and cons of 3857 CRS vs 4326**
-
 ```{r}
-# this data set has a crs of 3857
-crs(us_census)
+# this data set has a crs of 4326
+crs(states_borders) 
 ```
 
 ## Wrangling & Subsetting
@@ -83,10 +72,11 @@ Below we will use the package `sf` to convert the lat/long data into a raster ge
 
 ```{r}
 wind_sf <- wind_data %>%             # calls desired dataset
-  st_as_sf(coords = c("longitude", "latitude"), crs = 3857) 
+  st_as_sf(coords = c("longitude", "latitude"),
+           crs = 4326) 
                                      # creates geometry column with desired crs 
 
-glimpse(crs(wind_sf))                  # output should reveal WGS84, EPSG:4326
+crs(wind_sf)                  # output should reveal WGS84, EPSG:4326
 ```
 
 #### Check-point
@@ -117,7 +107,7 @@ plot(wind_sf$geometry)
 
 ```{r}
 ggplot() +
-  geom_sf(data = us_census) +
+  geom_sf(data = states_borders) +
   geom_sf(data = wind_sf) 
 ```
 
@@ -162,7 +152,7 @@ mainland_states <- st_polygon(     # creates a polygon with sf sticky geometries
 )
 mainland_states <- mainland_states %>% 
   st_sfc() %>%                         # creates a special feature collection 
-  st_set_crs(3857) %>%                 # assigns a CRS that matches our data sets
+  st_set_crs(4326) %>%                 # assigns a CRS that matches our data sets
   st_make_valid()                      # corrects and invalid geometries 
 
 alaska <- st_polygon(
@@ -183,7 +173,7 @@ alaska <- st_polygon(
 ) 
 alaska <- alaska %>% 
   st_sfc() %>%                           
-  st_set_crs(3857) %>%                                    
+  st_set_crs(4326) %>%                                    
   st_make_valid()
 
 hawaii <- st_polygon(
@@ -204,7 +194,7 @@ hawaii <- st_polygon(
 ) 
 hawaii <- hawaii %>% 
   st_sfc() %>%                        
-  st_set_crs(3857) %>%                                    
+  st_set_crs(4326) %>%                                    
   st_make_valid()
 ```
 
@@ -232,7 +222,7 @@ states <- st_union(mainland_alaska, hawaii) %>%
 # transforms multipolygon we created into a single polygon encompassing everything
 states_bbox <- st_bbox(states) %>%
   st_as_sfc() %>% 
-  st_set_crs(3857) %>% 
+  st_set_crs(4326) %>% 
   st_make_valid()
 
 glimpse(crs(states))
@@ -261,22 +251,25 @@ plot(states_bbox)
 This data did not subset properly, the output was an empty df with the proper column names
 
 ```{r}
-
-states_wanted <- us_census %>%
-  st_filter(y = mainland_states, .predicate = st_intersects)
 # output is funky sgbp, same with intersects
-states_within <- st_within(us_census, states_bbox) 
-#%>% 
- # diag() %>% # transforms sgbp list into vector
- # st_crop(ejscreen, states_within) 
-
-# output is funky sgbp, same with intersects
-#states_within <- st_within(states_borders$geometry, states_bbox) 
+states_within <- st_within(states_borders$geometry, states_bbox) 
 
 states_logical <- lengths(states_within) > 0
 
-states_cleaned <- us_census[states_logical, ]
+states_cleaned <- states_borders[states_logical, ]
 
+
+tm_shape(states_cleaned) +
+  tm_polygons() +
+  tm_shape(canterbury) +
+  tm_polygons(fill = "blue") +
+  tm_shape(c_height2) +
+  tm_dots(fill = "red")
+tm_shape(states_cleaned)
+
+#%>% 
+ # diag() %>% # transforms sgbp list into vector
+ # st_crop(ejscreen, states_within) 
 
 # this approach provides an empty sf object
 states_within2 <- ejscreen[states_bbox, op = st_within] 
@@ -311,35 +304,23 @@ plot(states_within)
 
 ### Approach 2: Filtering out Unwanted Region
 
-[Region Codes](https://ncsesdata.nsf.gov/docs/location.html) reveals the various regions throughout the US that are identifiable using codes between 1:10. US Territories are categorized under the Pacific Region Code, 9. Other states like CA, OR, HA, AK, and WA are also in the Pacific Region.
-
-```{r}
-unique(ejscreen$REGION)
-```
-
 #### Identifying the State Names for US Territories
 
 To properly filter out these unwanted observations, it's best to identify the exact names of the unwanted regions. We can do this using the `unique` function on the state_name column.
 
 ```{r}
-print(unique(ejscreen$STATE_NAME))
+# identify juridistiction types
+print(unique(states_borders$jurisdiction_type))
 ```
 
 #### Removing Regions Outside of Interest
 
-**not subsetting properly, maybe use** `subset()`
-
-%not in%
-
 ```{r}
-nonmapping_territories <- c('Puerto Rico', 'Guam', 'Virgin Islands', 'Northern Mariana IS', 'American Samoa')
+# basemap for plotting by filtering out territories
+us_basemap <- states_borders %>% 
+  filter(!jurisdiction_type %in% 'territory')
 
-us_basemap_data <- ejscreen %>% 
-  filter(!STATE_NAME %in% nonmapping_territories) %>% 
-  filter(REGION != 10) %>% 
-  group_by(STATE_NAME)
-
-plot(us_basemap_data)
+plot(st_geometry(us_basemap))
 ```
 
 ------------------------------------------------------------------------
@@ -453,7 +434,7 @@ print(dim(random_sample),'rows were randomly selected for sampling')
 ### Variables of interest:
 
 | **Wind Infrastructure Attributes** | **Regional Attributes** | **Legislative Action** |
-|------------------------------|---------------------|---------------------|
+|------------------------------------|-------------------------|------------------------|
 | n_turbs                            | med_inc                 | legislation_use        |
 | status                             | is_anti_wind            | protesters_mean        |
 | year                               | pop_den                 | courts_use             |
