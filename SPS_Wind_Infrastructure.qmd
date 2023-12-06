@@ -46,7 +46,11 @@ head(wind_data)                  # displays the first 6 rows of the data
                                  # along with all of the columns 
 ```
 
-#### EJ Screen Data
+### EJ Screen Data
+
+#### Filtering out Unwanted Region & Identifying the State Names for US Territories
+
+To properly filter out these unwanted observations, it's best to identify the exact names of the unwanted regions. We can do this using the `unique` function on the state_name column.
 
 ```{r include=TRUE, eval=FALSE, warning=FALSE, error=FALSE}
 ejscreen <- st_read("../data/EJSCREEN_2023_BG_StatePct_with_AS_CNMI_GU_VI.gdb",
@@ -116,12 +120,20 @@ plot(wind_sf$geometry)
 
 # Creating a Base Map Layer
 
-### takes forever to load, don't run bc breaks r session
+```{r}
+crs(us_census) == crs(wind_us)
+```
 
 ```{r}
-ggplot() +
-  geom_sf(data = us_census) +
-  geom_sf(data = wind_us) 
+#ggplot() +
+ # geom_sf(data = us_census) +
+  #geom_point(mapping = wind_us)  
+
+tmap_mode('plot')
+tm_shape(us_census) +
+  tm_polygons() +
+  tm_shape(wind_us) + 
+  tm_polygons(wind_us$plant_name)
 ```
 
 The issue with mapping the ejscreen data is the inclusion of US territories that are not considered in the U.S. Wind Data. Many of these territories are categorized under Region Code 9. There are a couple of ways to approach this issue. Below, we will use the `st_crop` strategy to remove unwanted locations to isolate our region of interest (roi).
@@ -311,47 +323,8 @@ tracts_within2 <- st_within(ejscreen$ID, wind_sf$cen_tract_id)
 plot(states_within)
 ```
 
-### Approach 2: Filtering out Unwanted Region
-
-[Region Codes](https://ncsesdata.nsf.gov/docs/location.html) reveals the various regions throughout the US that are identifiable using codes between 1:10. US Territories are categorized under the Pacific Region Code, 9. Other states like CA, OR, HA, AK, and WA are also in the Pacific Region.
-
-```{r}
-unique(ejscreen$REGION)
-```
-
-#### Identifying the State Names for US Territories
-
-To properly filter out these unwanted observations, it's best to identify the exact names of the unwanted regions. We can do this using the `unique` function on the state_name column.
-
 ```{r}
 print(unique(ejscreen$STATE_NAME))
-```
-
-#### Removing Regions Outside of Interest
-
-**not subsetting properly, maybe use** `subset()`
-
-%not in%
-
-```{r}
-nonmapping_territories <- c('Puerto Rico', 'Guam', 'Virgin Islands', 'Northern Mariana IS', 'American Samoa')
-
-us_basemap_data <- ejscreen %>% 
-  filter(!STATE_NAME %in% nonmapping_territories) %>% 
-  filter(REGION != 10) %>% 
-  group_by(STATE_NAME)
-
-plot(us_basemap_data)
-```
-
-------------------------------------------------------------------------
-
-Dissolve by state: ejscreen to simplify graphing: st_union(group_by state / dissolve
-
-(USAboundaries)
-
-```         
-states %>%   group_by(group_var) %>%    summarize(geometry = st_union(geometry))
 ```
 
 ## Subsetting Wind Plant Locations in US
@@ -443,11 +416,17 @@ set.seed(1)
 # sf object, each row is house
 # group by wind turbine id - plant_n
 random_sample <- buffer_homes %>%   
-  #group_by() %>% 
+  #group_by(plant_names) %>% 
   slice_sample(n = 1000)
 
+
+#--------- ALTERNATIVE IDEA WIHTOUT MAP
+random_sample2 <- wind_us %>% 
+  group_by(wind_us$plant_names) %>% 
+  slice_sample(n = 1000)
+  
 # confirms 1000 rows pulled
-print(dim(random_sample),'rows were randomly selected for sampling') 
+#print({dim(random_sample2)},'rows were randomly selected for sampling') 
 ```
 
 ## Multivariate Linear Regression Models
@@ -471,19 +450,44 @@ An attribute from each column will be used to run several multivariate linear re
 unique(wind_sf$status)     # displays unique values in this column
 
 # pseudocode
-not_operating <- c('Cancelled', 'Out of service (temporarily)', 'Standby', 'Decommissioned', 'Opertaing | Decommissioned')
+#not_operating <- c('Cancelled', 'Out of service (temporarily)', 'Standby', 'Decommissioned', 'Opertaing | Decommissioned')
+
+
 
 # assign all outputs in not_operating as "not_operating" // not working yet
-wind_sf <- wind_sf %>% 
-  mutate(wind_sf$status %in% not_operating == "not_operating")
+#wind_sf <- wind_us$status %>% 
+ # mutate(wind_us$status %in% not_operating == 'not_operating')
 
-unique(wind_sf$status)     # displays unique values in this column
 
-wind_sf <- drop(wind_sf$`wind_sf$status %in% not_operating == "not_operating"`)
+ # mutate(wind_sf$status %in% not_operating == "not_operating")
+
+#unique(wind_sf$status)     # displays unique values in this column
+
+#wind_sf <- drop(wind_sf$`wind_sf$status %in% not_operating == "not_operating"`)
 #$status[c('Cancelled', 'Out of service (temporarily)', 'Standby', 'Decommissioned', #'Opertaing | Decommissioned')] <- 'not_operating' 
 ```
 
-Binary variable will be `status` column: `operating` will be 1, and `not_operating` will be 0.
+# Need to reclassify column values
+
+```{r}
+# creating two categories: operating & not_operating
+wind_us <- wind_us %>% 
+  mutate(status = if_else(
+    status %in% c('Cancelled', 'Out of service (temporarily)', 'Standby', 'Decommissioned', 'Operating | Decommissioned'), 'not_operating',
+  status
+  )
+  )
+    
+  unique(wind_us$status)
+  #case_when(status %in% c('Cancelled', 'Out of service (temporarily)', 'Standby', 'Decommissioned', 'Opertaing | Decommissioned')] ~ 'not_operating')
+
+# case_when()
+
+
+# need to remove NAs from wind_us -- in next chunk
+```
+
+Binary variable will be `is_anti_wind` column: `anti` is be 1, and `not_anti` will be 0.
 
 ```{r}
 # where is_anti_wind is binary variable
@@ -491,8 +495,11 @@ Binary variable will be `status` column: `operating` will be 1, and `not_operati
 unique(wind_sf$is_anti_wind)
 
 # filtering out NAs just in case
-wind_us <- wind_sf %>% 
-  filter(is.na(is_anti_wind) == 'FALSE')
+wind_us <- wind_us %>% 
+  filter(is.na(status) == 'FALSE') %>% 
+  mutate(status = as.factor(status))
+
+wind_us$status
 
 ```
 
@@ -519,29 +526,35 @@ $$ \text{status}\ = \beta_0 + \beta_1 \text{is_anti_wind}\_i + + \beta_2 \text{l
 ```{r}
 # Inital regression 1 betas for null
 status1 <- glm(status ~ is_anti_wind ,
-               random_sample,
+               wind_us,
                family = 'binomial')
-glimpse(status1)
+#glimpse(status1)
+summary(status1)
 
 # Inital regression 2 betas for null
 status2 <- glm(status ~ is_anti_wind + pop_den,
-               random_sample,
+               wind_us,
                family = 'binomial')
-glimpse(status2)
+#glimpse(status2)
+summary(status2)
+
 
 # Regression with 3 beta
 status3 <- glm(status ~ is_anti_wind + pop_den + med_inc, 
-               random_sample,
+               wind_us,
                family = 'binomial')
-glimpse(status3)
+#glimpse(status3)
+summary(status3)
+
 
 # Regression with 4
 status4 <- glm(status ~ is_anti_wind + pop_den + med_inc + median_age, 
-               random_sample,
+               wind_us,
                family = 'binomial')
-glimpse(status4)
+#glimpse(status4)
+summary(status4)
 
-summary(c(status1, status2, status3, status4))
+#c(status1, status2, status3, status4) %>% map(summary)
 ```
 
 ##### Make a table of the coefficients to compare Adj R2 and interpret what the effects of each variable are
@@ -549,6 +562,12 @@ summary(c(status1, status2, status3, status4))
 -   what adjusted r\^2 is largest and is able to estimate the largest amount of the data in the model?
 
 -   what are the coeff. telling us about their relationship with
+
+### Logit / Log Odds
+
+exponentiate data, if it's negative its decreasing odds
+
+recode status to be 0 and 1
 
 ### Omitted Variables Bias (OVB)
 
@@ -558,7 +577,61 @@ By not considering `blank` as an affect on wind turbine activation status blah b
 
 After considering the glm
 
-#### The null states, that the wind turbine active `status` is unimpacted by the `is_anti_wind` rating, regardless of population density, `pop_den`.
+### The null states, that the wind turbine active `status` is unimpacted by the `is_anti_wind` rating.
+
+Two hypothesis presented are
+
+$$ H_0: \text{is_anti_wind} - \text{not_anti_wind} = 0$$
+
+$$
+H_A: \text{is_anti_wind} - \text{not_anti_wind} ≠ 0
+$$
+
+#\-\-- Should I reduce the number of variables in this to simplify my analysis?
+
+-   Could only consider population density
+
+$$ H_0\: \beta_0 + \beta_1 \text{is_anti_wind}\_i + + \beta_2 \text{pop_den} + \varepsilon_i $$
+
+### Point Estimates 
+
+Use the complete version of the `ncbirths` data to estimate the \"point estimate\", which in this case is a difference in means between the two groups of mothers.
+
+```{r}
+# Mean of is_anti_wind
+mu_is_anti_wind <- wind_us %>% 
+  filter(is_anti_wind == 1) %>% 
+  summarize(mean(status)) # maybe as.factor bc status is a str
+  
+# Mean of not_anti_wind
+mu_not_anti_wind <- wind_us %>% 
+  filter(is_anti_wind == 1) %>% 
+  summarize(mean(status)) # maybe as.factor bc status is a str
+
+# Point Estimate
+
+```
+
+```         
+mu_nonsmoker = ncbirths_complete %>% 
+  filter(habit == "nonsmoker") %>% 
+  summarize(mean(weight))
+
+mu_smoker = ncbirths_complete %>% 
+  filter(habit == "smoker") %>% 
+  summarize(mean(weight))
+
+point_est = as.numeric(mu_nonsmoker - mu_smoker)
+print(point_est)
+```
+
+```         
+## [1] 0.3155425
+```
+
+This doesn\'t look like \"no difference\", and it\'s consistent with our prior that non-smoking mothers should have higher birth weight babies. But remember that to conduct a hypothesis test we need a measure of variability, not just a measure of the mean.
+
+#\-\--
 
 The `is_anti_wind` indicator of the region is more
 
@@ -568,27 +641,7 @@ More simply - the is_anti_wind ratings are greater in `rural` areas compared to 
 
 Determining the affect and relationship that anti_wind and pop_den
 
-### The hypothesis illuminate the difference in `status OR is_anti_wind` in `rural and urban areas`
-
-#\-\-- Should I reduce the number of variables in this to simplify my analysis?
-
--   Could only consider population density
-
--   Or income
-
-Two hypothesis presented are
-
-$$ H_0\ = \beta_0 + \beta_1 \text{is_anti_wind}\_i + + \beta_2 \text{med_inc} + \beta_3 \text{med_age} + \beta_4 \text{pop_den} + \varepsilon_i $$
-
-H0: urban - rural =
-
-### Point Estimates 
-
-Construct a null and an alternative hypothesis that will allow you to evaluate if the birth weight of babies born to smoking mothers is different from the birth weight of babies born to non-smoking mothers.
-
-H0:μnonsmoker−μsmoker=0
-
-HA:μnonsmoker−μsmoker≠0
+#### 
 
 This equation estimates the mean of the number of protesters expected when considering a regions' wind turbine status. population density, and the number of turbines.
 
