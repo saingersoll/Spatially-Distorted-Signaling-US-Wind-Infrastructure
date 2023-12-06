@@ -56,7 +56,7 @@ ejscreen <- st_read("../data/EJSCREEN_2023_BG_StatePct_with_AS_CNMI_GU_VI.gdb",
 
 unique(ejscreen$STATE_NAME)
 # simplifying dataset
-nonmapping_territories <- c('Puerto Rico', 'Guam', 'Virgin Islands', 'Northern Mariana IS', 'American Samoa', 'Northern Marina Is')
+nonmapping_territories <- c('Puerto Rico', 'Guam', 'Virgin Islands', 'Northern Mariana IS', 'American Samoa', 'Northern Mariana Is')
 
 # unionizing geometries of states to simplify plotting
 us_census <- ejscreen %>% 
@@ -64,11 +64,14 @@ us_census <- ejscreen %>%
   group_by(STATE_NAME)  %>% 
  summarize(geometry = st_union(Shape))
 
+unique(us_census$STATE_NAME)
 # visualizing shows still need to crop
 plot(us_census)
 ```
 
 **Make sure to compare the pros and cons of 3857 CRS vs 4326**
+
+3857 is typically used in online modeling, this project is easiest to work with in this scenario.
 
 ```{r}
 # this data set has a crs of 3857
@@ -118,7 +121,7 @@ plot(wind_sf$geometry)
 ```{r}
 ggplot() +
   geom_sf(data = us_census) +
-  geom_sf(data = wind_sf) 
+  geom_sf(data = wind_us) 
 ```
 
 The issue with mapping the ejscreen data is the inclusion of US territories that are not considered in the U.S. Wind Data. Many of these territories are categorized under Region Code 9. There are a couple of ways to approach this issue. Below, we will use the `st_crop` strategy to remove unwanted locations to isolate our region of interest (roi).
