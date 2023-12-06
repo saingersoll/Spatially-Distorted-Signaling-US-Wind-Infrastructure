@@ -474,34 +474,23 @@ unique(wind_sf$status)     # displays unique values in this column
 wind_us <- wind_us %>% 
   mutate(status = if_else(
     status %in% c('Cancelled', 'Out of service (temporarily)', 'Standby', 'Decommissioned', 'Operating | Decommissioned'), 'not_operating',
-  status
+  status) 
   )
+# status as factor and reassigned values
+wind_us <- wind_us %>% 
+  mutate(status = as.factor(wind_us$status)) %>% 
+  filter(is.na(status) == 'FALSE') %>% 
+  mutate(status = if_else(
+    status %in% 'Operating', 1,
+    status %in% "not_operating", 0
   )
-    
-  unique(wind_us$status)
-  #case_when(status %in% c('Cancelled', 'Out of service (temporarily)', 'Standby', 'Decommissioned', 'Opertaing | Decommissioned')] ~ 'not_operating')
+)
 
-# case_when()
-
-
-# need to remove NAs from wind_us -- in next chunk
+  
+unique(wind_us$status)
 ```
 
 Binary variable will be `is_anti_wind` column: `anti` is be 1, and `not_anti` will be 0.
-
-```{r}
-# where is_anti_wind is binary variable
-
-unique(wind_sf$is_anti_wind)
-
-# filtering out NAs just in case
-wind_us <- wind_us %>% 
-  filter(is.na(status) == 'FALSE') %>% 
-  mutate(status = as.factor(status))
-
-wind_us$status
-
-```
 
 #### Proposed Estimation Equations:
 
