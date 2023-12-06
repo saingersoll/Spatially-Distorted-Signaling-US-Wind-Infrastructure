@@ -54,9 +54,9 @@ ejscreen <- st_read("../data/EJSCREEN_2023_BG_StatePct_with_AS_CNMI_GU_VI.gdb",
 # reads in raster data using the sf package st_read function
 # the quiet T/F input refers to information output after importing data
 
-
+unique(ejscreen$STATE_NAME)
 # simplifying dataset
-nonmapping_territories <- c('Puerto Rico', 'Guam', 'Virgin Islands', 'Northern Mariana IS', 'American Samoa')
+nonmapping_territories <- c('Puerto Rico', 'Guam', 'Virgin Islands', 'Northern Mariana IS', 'American Samoa', 'Northern Marina Is')
 
 # unionizing geometries of states to simplify plotting
 us_census <- ejscreen %>% 
@@ -261,17 +261,16 @@ plot(states_bbox)
 This data did not subset properly, the output was an empty df with the proper column names
 
 ```{r}
-
+# empty output
 states_wanted <- us_census %>%
   st_filter(y = mainland_states, .predicate = st_intersects)
+
+
 # output is funky sgbp, same with intersects
 states_within <- st_within(us_census, states_bbox) 
 #%>% 
  # diag() %>% # transforms sgbp list into vector
  # st_crop(ejscreen, states_within) 
-
-# output is funky sgbp, same with intersects
-#states_within <- st_within(states_borders$geometry, states_bbox) 
 
 states_logical <- lengths(states_within) > 0
 
@@ -469,22 +468,124 @@ An attribute from each column will be used to run several multivariate linear re
 unique(wind_sf$status)     # displays unique values in this column
 
 # pseudocode
-wind_sf$status[c('Cancelled', 'Out of service (temporarily)', 'Standby', 'Decommissioned', 'Opertaing | Decommissioned')] <- not_operating 
+not_operating <- c('Cancelled', 'Out of service (temporarily)', 'Standby', 'Decommissioned', 'Opertaing | Decommissioned')
+
+# assign all outputs in not_operating as "not_operating" // not working yet
+wind_sf <- wind_sf %>% 
+  mutate(wind_sf$status %in% not_operating == "not_operating")
+
+unique(wind_sf$status)     # displays unique values in this column
+
+wind_sf <- drop(wind_sf$`wind_sf$status %in% not_operating == "not_operating"`)
+#$status[c('Cancelled', 'Out of service (temporarily)', 'Standby', 'Decommissioned', #'Opertaing | Decommissioned')] <- 'not_operating' 
 ```
 
 Binary variable will be `status` column: `operating` will be 1, and `not_operating` will be 0.
+
+```{r}
+# where is_anti_wind is binary variable
+
+unique(wind_sf$is_anti_wind)
+
+# filtering out NAs just in case
+wind_us <- wind_sf %>% 
+  filter(is.na(is_anti_wind) == 'FALSE')
+
+```
 
 #### Proposed Estimation Equations:
 
 The first four equations estimate the likelihood of taking political action when considering a regions' wind turbine status, median income, and median age.
 
-$$ \text{legislation_use}\ = \beta_0 + \beta_1 \text{status}\_i + + \beta_2 \text{med_inc} + \beta_3 \text{med_age} + \varepsilon_i $$
+$$ \text{status}\ = \beta_0 + \beta_1 \text{is_anti_wind}\_i + + \beta_2 \text{med_inc} + \beta_3 \text{med_age} + \beta_4 \text{pop_den} + \varepsilon_i $$
 
-$$ \text{courts_use}\ = \beta_0 + \beta_1 \text{status}\_i + + \beta_2 \text{med_inc} + \beta_3 \text{med_age} + \varepsilon_i $$
+$$ \text{status}\ = \beta_0 + \beta_1 \text{is_anti_wind}\_i + + \beta_2 \text{med_inc} + \beta_3 \text{med_age} + \beta_4 \text{pop_den}+ \beta_5 \text{n_turbs} + \varepsilon_i $$
 
-$$ \text{letters_use}\ = \beta_0 + \beta_1 \text{status}\_i + + \beta_2 \text{med_inc} + \beta_3 \text{med_age} + \varepsilon_i $$
+$$ \text{status}\ = \beta_0 + \beta_1 \text{is_anti_wind}\_i + + \beta_2 \text{legislation_use }+ \beta_3 \text{med_inc} + \beta_4 \text{med_age} + \beta_5 \text{pop_den} + \varepsilon_i $$
 
-$$ \text{is_anti_wind}\ = \beta_0 + \beta_1 \text{status}\_i + + \beta_2 \text{med_inc} + \beta_3 \text{med_age} + \varepsilon_i $$
+$$ \text{status}\ = \beta_0 + \beta_1 \text{is_anti_wind}\_i + + \beta_2 \text{courts_use } + \beta_3 \text{med_inc} + \beta_4 \text{med_age} + \beta_5 \text{pop_den} + \varepsilon_i $$
+
+$$ \text{status}\ = \beta_0 + \beta_1 \text{is_anti_wind}\_i + + \beta_2 \text{courts_use }+ \beta_3 \text{med_inc} + \beta_4 \text{med_age} + \beta_5 \text{pop_den} + \varepsilon_i $$
+
+$$ \text{status}\ = \beta_0 + \beta_1 \text{is_anti_wind}\_i + + \beta_2 \text{letters_use }+ \beta_3 \text{med_inc} + \beta_4 \text{med_age} + \beta_5 \text{pop_den} + \varepsilon_i $$
+
+#\-\-\-\-\-\-\-- The above gml are what we should focus on & consider for our null hypothesis. It might be best to run a glm with 3 beta and then work up to 5? Maybe play around with what we input here
+
+### GLM Linear Regressions with Binomial Family
+
+```{r}
+# Inital regression 1 betas for null
+status1 <- glm(status ~ is_anti_wind ,
+               random_sample,
+               family = 'binomial')
+glimpse(status1)
+
+# Inital regression 2 betas for null
+status2 <- glm(status ~ is_anti_wind + pop_den,
+               random_sample,
+               family = 'binomial')
+glimpse(status2)
+
+# Regression with 3 beta
+status3 <- glm(status ~ is_anti_wind + pop_den + med_inc, 
+               random_sample,
+               family = 'binomial')
+glimpse(status3)
+
+# Regression with 4
+status4 <- glm(status ~ is_anti_wind + pop_den + med_inc + median_age, 
+               random_sample,
+               family = 'binomial')
+glimpse(status4)
+
+summary(c(status1, status2, status3, status4))
+```
+
+##### Make a table of the coefficients to compare Adj R2 and interpret what the effects of each variable are
+
+-   what adjusted r\^2 is largest and is able to estimate the largest amount of the data in the model?
+
+-   what are the coeff. telling us about their relationship with
+
+### Omitted Variables Bias (OVB)
+
+By not considering `blank` as an affect on wind turbine activation status blah blah
+
+### Null Hypothesis
+
+After considering the glm
+
+#### The null states, that the wind turbine active `status` is unimpacted by the `is_anti_wind` rating, regardless of population density, `pop_den`.
+
+The `is_anti_wind` indicator of the region is more
+
+The `status` of a wind turbine structures comparing regions with a `higher median income, median age, and lower population density`.
+
+More simply - the is_anti_wind ratings are greater in `rural` areas compared to `urban` areas. As a result, a greater percentage of not-operating wind plants are in `rural` areas. (CALCULATE PERCENTAGE OF STATUS NOT-OPERATING & OPERATING) .
+
+Determining the affect and relationship that anti_wind and pop_den
+
+### The hypothesis illuminate the difference in `status OR is_anti_wind` in `rural and urban areas`
+
+#\-\-- Should I reduce the number of variables in this to simplify my analysis?
+
+-   Could only consider population density
+
+-   Or income
+
+Two hypothesis presented are
+
+$$ H_0\ = \beta_0 + \beta_1 \text{is_anti_wind}\_i + + \beta_2 \text{med_inc} + \beta_3 \text{med_age} + \beta_4 \text{pop_den} + \varepsilon_i $$
+
+H0: urban - rural =
+
+### Point Estimates 
+
+Construct a null and an alternative hypothesis that will allow you to evaluate if the birth weight of babies born to smoking mothers is different from the birth weight of babies born to non-smoking mothers.
+
+H0:μnonsmoker−μsmoker=0
+
+HA:μnonsmoker−μsmoker≠0
 
 This equation estimates the mean of the number of protesters expected when considering a regions' wind turbine status. population density, and the number of turbines.
 
