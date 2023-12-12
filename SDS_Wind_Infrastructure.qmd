@@ -121,8 +121,13 @@ wind_sf$status[wind_sf$status== unwanted_status]<-"Uncertain Status"
 # were we successful ?
 unique(wind_sf$status)     # displays unique values in this
 
+# cleaning out NAs for OLS
 wind_sf <- wind_sf %>%
-  filter(is.na(status) == 'FALSE')
+  filter(is.na(status) == 'FALSE') %>% 
+  filter(is.na(is_anti_wind) == 'FALSE') %>% 
+  filter(is.na(pop_den) == 'FALSE') %>% 
+  filter(is.na(med_inc) == 'FALSE') %>% 
+  filter(is.na(median_age) == 'FALSE')
 
 # were we successful ?
 unique(wind_sf$status)     # displays unique values in this
@@ -139,14 +144,7 @@ print(unique(wind_us$status))
 
 # status as factor and reassigned values
 wind_us <- wind_us %>% 
-  mutate(status = as.factor(wind_us$status)) %>% 
-  mutate(status = if_else(
-    status == 'not_operating', 0, 1
-  )
-)
-
-wind_us <- wind_us %>% 
-  mutatue(status = case_when(status == "operating" ~ 1,
+  mutate(status = case_when(status == "operating" ~ 1,
             status == "not_operating" ~ 0))
 
 # are our only outputs 0 or 1?
@@ -159,29 +157,79 @@ Binary variable will be `is_anti_wind` column: `anti` is be 1, and `not_anti` wi
 
 The first four equations estimate the likelihood of taking political action when considering a regions' wind turbine status, median income, and median age.
 
-$$ \text{status}\ = \beta_0 + \beta_1 \text{is_anti_wind}\_i + + \beta_2 \text{med_inc} + \beta_3 \text{med_age} + \beta_4 \text{pop_den} + \varepsilon_i $$
-
-$$ \text{status}\ = \beta_0 + \beta_1 \text{is_anti_wind}\_i + + \beta_2 \text{med_inc} + \beta_3 \text{med_age} + \beta_4 \text{pop_den}+ \beta_5 \text{n_turbs} + \varepsilon_i $$
-
-$$ \text{status}\ = \beta_0 + \beta_1 \text{is_anti_wind}\_i + + \beta_2 \text{legislation_use }+ \beta_3 \text{med_inc} + \beta_4 \text{med_age} + \beta_5 \text{pop_den} + \varepsilon_i $$
-
-$$ \text{status}\ = \beta_0 + \beta_1 \text{is_anti_wind}\_i + + \beta_2 \text{courts_use } + \beta_3 \text{med_inc} + \beta_4 \text{med_age} + \beta_5 \text{pop_den} + \varepsilon_i $$
-
-$$ \text{status}\ = \beta_0 + \beta_1 \text{is_anti_wind}\_i + + \beta_2 \text{courts_use }+ \beta_3 \text{med_inc} + \beta_4 \text{med_age} + \beta_5 \text{pop_den} + \varepsilon_i $$
-
-$$ \text{status}\ = \beta_0 + \beta_1 \text{is_anti_wind}\_i + + \beta_2 \text{letters_use }+ \beta_3 \text{med_inc} + \beta_4 \text{med_age} + \beta_5 \text{pop_den} + \varepsilon_i $$
 ## GLM Linear Regressions with Binomial Family
 
-The production of negative coefficents from a binomial linear regression indicates the potential need to transform the data using the logarithmic funciton. Before doing this, I would like to see a visual observation of the data distribution using a histogram.
+### OLS with 1 Binary Variable
+$$ \text{status}\ = \beta_0 + \beta_1 \text{is_anti_wind}\_i + \varepsilon_i $$
+When wind turbines are operational, and all other variables are held constant at 0, the $\beta_0$ represents the estimated likelihood that `status` of a wind infrastructure plant is `operating` is ~ `4.5`. $\beta_1$ tells us there is an estimated decrease of `2.8` in probability that status would be `operating` for the average unit increase in `is_anti_wind` opinion holders. 
+
+Our summary table describes a null deviance `362.89`.(1182 df) and residual deviance `292.28` (1181 df). Additionally, it provides a p-value of `7.4e-15` for $\beta_0$, indicating that the hypothesis here is rejectable because it is drastically smaller than the significant value of 0.05. However, I am still not convinced there isn't a correlation between the two, so let's explore how our numbers change as we incorporate more variables into our equation.
 
 ```{r}
 # Inital regression 1 betas for null
 status1 <- glm(status ~ is_anti_wind ,
                wind_us,
                family = 'binomial')
-#glimpse(status1)
+
+# show me a summary table 
 summary(status1)
 ```
+
+## Assessing Omitted Variables Bias in OLS 
+
+### OLS with 2 Variables
+
+$$ \text{status}\ = \beta_0 + \beta_1 \text{is_anti_wind}\_i + \beta_2 \text{pop_den} + \varepsilon_i $$
+```{r}
+# Inital regression 2 betas for null
+status2 <- glm(status ~ is_anti_wind + pop_den,
+              wind_us,
+              family = 'binomial')
+
+summary(status2)
+```
+
+### OLS with 3 Variables
+
+$$ \text{status}\ = \beta_0 + \beta_1 \text{is_anti_wind}\_i + + \beta_2 \text{pop_den } + \beta_3 \text{med_inc} + \varepsilon_i $$
+```{r}
+# Regression with 3 beta
+status3 <- glm(status ~ is_anti_wind + pop_den + med_inc, 
+               wind_us,
+               family = 'binomial')
+
+summary(status3)
+```
+
+### OLS with 4 Variables
+
+$$ \text{status}\ = \beta_0 + \beta_1 \text{is_anti_wind}\_i + + \beta_2 \text{pop_den} + \beta_3 \text{med_inc} + \beta_4 \text{med_age} + \varepsilon_i $$
+```{r}
+# Regression with 4
+status4 <- glm(status ~ is_anti_wind + pop_den + med_inc + median_age, 
+               wind_us,
+               family = 'binomial')
+
+summary(status4)
+```
+
+## Interpreting Omitted Variable Bias (OVB)
+
+Comparing the corrected $$R^2$$ values in each of the models provided below will assist in the determination of including an additional variable to our
+
+
+
+
+
+
+
+
+
+
+
+
+
+# maybe not needed 
 
 ### Visualizing Data Distribution
 ```{r}
@@ -335,37 +383,6 @@ status_factor_qq
 
 ```
 
-
-### Assessing Omitted Variables Bias in OLS 
-```{r}
-# Inital regression 2 betas for null
-#status2 <- glm(status ~ is_anti_wind + pop_den,
- #              wind_us,
-#               family = 'binomial')
-#glimpse(status2)
-#summary(status2)
-
-
-# Regression with 3 beta
-#status3 <- glm(status ~ is_anti_wind + pop_den + med_inc, 
- #              wind_us,
-  #             family = 'binomial')
-#glimpse(status3)
-#summary(status3)
-
-
-# Regression with 4
-#status4 <- glm(status ~ is_anti_wind + pop_den + med_inc + median_age, 
- #              wind_us,
-  #             family = 'binomial')
-#glimpse(status4)
-#summary(status4)
-
-```
-
-## Interpreting Omitted Variable Bias (OVB)
-
-Comparing the corrected $$R^2$$ values in each of the models provided below will assist in the determination of including an additional variable to our
 
 
 
