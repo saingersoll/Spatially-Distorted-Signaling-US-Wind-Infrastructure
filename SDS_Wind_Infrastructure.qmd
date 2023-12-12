@@ -1,5 +1,5 @@
 ---
-title: "SPS_Wind_Infrastructre"
+title: "SDS_Wind_Infrastructre"
 author: "Sofia Ingersoll"
 format: html
 editor: visual
@@ -84,11 +84,6 @@ Using the base R function `plot()`, we can see that the geometries stored by thi
 plot(wind_sf$geometry)
 ```
 
-
-
-
-
-
 # Multivariate Linear Regression Models
 
 ### Variables of interest:
@@ -104,11 +99,12 @@ An attribute from each column will be used to run several multivariate linear re
 
 ## Determining Variable Assignments for OLS
 
-\*\*Question - do i need to adjust these variables? I want the binary variable to be `n_turbs`. This might be redundant though because we are only evaluating houses within turbine regions. In this case, `status` may be a better indicator of SDS because it could better reflect a response as a result of public response. However, as seen below, there are 7 possible outputs for `status` . Should i re-categorize these into two categories: operating and not operating?\*\*
+Question - do i need to adjust these variables? I want the binary variable to be `n_turbs`. This might be redundant though because we are only evaluating houses within turbine regions. In this case, `status` may be a better indicator of SDS because it could better reflect a response as a result of public response. However, as seen below, there are 7 possible outputs for `status` . Should i re-categorize these into two categories: operating and not operating?
 
 ```{r}
 unique(wind_sf$status)     # displays unique values in this
 ```
+
 ### Need to reclassify column values
 
 ```{r}
@@ -127,12 +123,13 @@ wind_sf <- wind_sf %>%
   filter(is.na(is_anti_wind) == 'FALSE') %>% 
   filter(is.na(pop_den) == 'FALSE') %>% 
   filter(is.na(med_inc) == 'FALSE') %>% 
-  filter(is.na(median_age) == 'FALSE')
+  filter(is.na(median_age) == 'FALSE') %>% 
+  filter(is.na(n_turbs) == 'FALSE')
 
 # were we successful ?
 unique(wind_sf$status)     # displays unique values in this
 
-# if_else preserves the data type
+# if_else preserves the data type but replaces unwanted values
 wind_us <- wind_sf %>% 
   mutate(status = if_else(
     status %in% c('Cancelled', 'Out of service (temporarily)', 'Standby', 'Decommissioned', 'Uncertain Status'), 'not_operating',
@@ -160,43 +157,49 @@ The first four equations estimate the likelihood of taking political action when
 ## GLM Linear Regressions with Binomial Family
 
 ### OLS with 1 Binary Variable
-$$ \text{status}\ = \beta_0 + \beta_1 \text{is_anti_wind}\_i + \varepsilon_i $$
-When wind turbines are operational, and all other variables are held constant at 0, the $\beta_0$ represents the estimated likelihood that `status` of a wind infrastructure plant is `operating` is ~ `4.5`. $\beta_1$ tells us there is an estimated decrease of `2.8` in probability that status would be `operating` for the average unit increase in `is_anti_wind` opinion holders. 
 
-Our summary table describes a null deviance `362.89`.(1182 df) and residual deviance `292.28` (1181 df). Additionally, it provides a p-value of `7.4e-15` for $\beta_0$, indicating that the hypothesis here is rejectable because it is drastically smaller than the significant value of 0.05. However, I am still not convinced there isn't a correlation between the two, so let's explore how our numbers change as we incorporate more variables into our equation.
+$$ \text{status}\ = \beta_0 + \beta_1 \text{is_anti_wind}\_i + \varepsilon_i $$ When wind turbines are operational, and all other variables are held constant at 0, the $\beta_0$ represents the estimated likelihood that `status` of a wind infrastructure plant is `operating` is \~ `4.48`. $\beta_1$ tells us there is an estimated decrease of `2.80` in probability that status would be `operating` for the average unit increase in `is_anti_wind` opinion holders.
+
+Our summary table describes a null deviance `362.89`.(`1182 df`) and residual deviance `292.28` (`1181 df`). Additionally, it provides a p-value of `8.1e-15` for $\beta_1$, indicating that the hypothesis here is rejected because it is drastically smaller than the `significant value of 0.05`. However, I am still not convinced there isn't a correlation between the two, so let's explore how our numbers change as we incorporate more variables into our equation.
 
 ```{r}
 # Inital regression 1 betas for null
-status1 <- glm(status ~ is_anti_wind ,
-               wind_us,
-               family = 'binomial')
+status1 <- summary(glm(status ~ is_anti_wind,
+                       wind_us,
+                       family = 'binomial'))
 
 # show me a summary table 
 summary(status1)
 ```
 
-## Assessing Omitted Variables Bias in OLS 
+## Assessing Omitted Variables Bias in OLS
 
 ### OLS with 2 Variables
 
-$$ \text{status}\ = \beta_0 + \beta_1 \text{is_anti_wind}\_i + \beta_2 \text{pop_den} + \varepsilon_i $$
+$$ \text{status}\ = \beta_0 + \beta_1 \text{is_anti_wind}\_i + \beta_2 \text{pop_den} + \varepsilon_i $$ When wind turbines are operational, and all other variables are held constant at 0, the $\beta_0$ represents the estimated likelihood that `status` of a wind infrastructure plant is `operating` is \~ `4.47`. $\beta_1$ tells us there is an estimated decrease of `2.79` in probability that status would be `operating` for the average unit increase in `is_anti_wind` opinion holders. For every average unit increase in `pop_den`, $\beta_2$ predicts `7.6e-05` will increase the `operating status`, indicating `pop_den` is an extremely marginal influence, that may potentially be interacting with `is_anti_wind` outlook.
+
+Our summary table describes a null deviance `362.60`.(`1178 df`) and residual deviance `292.13` (`1176 df`). Additionally, it provides a p-value of `9.5e-15` for $\beta_1$, indicating that the hypothesis here is rejected because it is drastically smaller than the `significant value of 0.05`. The p-value of $\beta_2$, `0.819` is acceptable because it is within range of the significant value.
+
 ```{r}
-# Inital regression 2 betas for null
-status2 <- glm(status ~ is_anti_wind + pop_den,
-              wind_us,
-              family = 'binomial')
+# Initial regression 2 betas for null
+status2 <- summary(glm(status ~ is_anti_wind + pop_den,
+                       wind_us,
+                       family = 'binomial'))
 
 summary(status2)
 ```
 
 ### OLS with 3 Variables
 
-$$ \text{status}\ = \beta_0 + \beta_1 \text{is_anti_wind}\_i + + \beta_2 \text{pop_den } + \beta_3 \text{med_inc} + \varepsilon_i $$
+$$ \text{status}\ = \beta_0 + \beta_1 \text{is_anti_wind}\_i + + \beta_2 \text{pop_den } + \beta_3 \text{med_inc} + \varepsilon_i $$ When wind turbines are operational, and all other variables are held constant at 0, the $\beta_0$ represents the estimated likelihood that `status` of a wind infrastructure plant is `operating` is \~ `5.35`. $\beta_1$ tells us there is an estimated decrease of `2.80` in probability that status would be `operating` for the average unit increase in `is_anti_wind` opinion holders. For every average unit increase in `pop_den`, $\beta_2$ predicts `1.65e-04` will increase the `operating status`. The dramatic change in `pop_den` estimated influence on `status` is likely due to an interaction relationship with `med_inc`, which intuitively makes sense. $\beta_3$ predicts `1.74e-04` will decrease the `operating status`, for an average unit increase in `med_inc`.
+
+Our summary table describes a null deviance `362.60`.(`1178 df`) and residual deviance `289.8` (`1175 df`). Additionally, it provides a p-value of `1.03e-14` for $\beta_1$, indicating that the hypothesis here is rejected because it is drastically smaller than the `significant value of 0.05`. The p-value of $\beta_2$, `0.668` is acceptable because it is within range of the significant value. The p-value of $\beta_3$, `0.103` is acceptable because it is within range of the significant value.
+
 ```{r}
 # Regression with 3 beta
-status3 <- glm(status ~ is_anti_wind + pop_den + med_inc, 
-               wind_us,
-               family = 'binomial')
+status3 <- summary(glm(status ~ is_anti_wind + pop_den + med_inc, 
+                       wind_us,
+                       family = 'binomial'))
 
 summary(status3)
 ```
@@ -204,34 +207,139 @@ summary(status3)
 ### OLS with 4 Variables
 
 $$ \text{status}\ = \beta_0 + \beta_1 \text{is_anti_wind}\_i + + \beta_2 \text{pop_den} + \beta_3 \text{med_inc} + \beta_4 \text{med_age} + \varepsilon_i $$
+
+When wind turbines are operational, and all other variables are held constant at 0, the $\beta_0$ represents the estimated likelihood that `status` of a wind infrastructure plant is `operating` is \~ `4.23`. $\beta_1$ tells us there is an estimated decrease of `2.81` in probability that status would be `operating` for the average unit increase in `is_anti_wind` opinion holders. For every average unit increase in `pop_den`, $\beta_2$ predicts `1.65e-04` will increase the `operating status`, indicating `pop_den` is an extremely marginal influence, that may potentially be interacting with `is_anti_wind` outlook. $\beta_3$ predicts `1.79e-05` will decrease the `operating status`, for an average unit increase in `med_inc`. $\beta_4$ estimates an increase of `2.73e-02` in the `operating status`, for each average unit increase in `med_age`.
+
+Our summary table describes a null deviance `362.60`.(`1178 df`) and residual deviance `289.02` (`1174 df`). Additionally, it provides a p-value of `9.17e-15` for $\beta_1$, indicating that the hypothesis here is rejected because it is drastically smaller than the `significant value of 0.05`. The p-value of $\beta_2$, `0.553` is acceptable because it is within range of the significant value. The p-value of $\beta_3$, `0.096` is acceptable because it is within range of the significant value. The p-value of $\beta_4$, \~`0.370` is acceptable because it is within range of the significant value.
+
 ```{r}
 # Regression with 4
 status4 <- glm(status ~ is_anti_wind + pop_den + med_inc + median_age, 
-               wind_us,
-               family = 'binomial')
+                       wind_us,
+                       family = 'binomial')
 
 summary(status4)
 ```
 
+### OLS with Interacting Variables
+
+##### Population Density \* Is Anti Wind Opinion
+
+$$ \text{status}\ = \beta_0 + \beta_1 \text{is_anti_wind}\_i + \beta_2 \text{pop_den} + \beta_3 \text{pop_den * is_anti_wind} + \varepsilon_i $$
+
+When wind turbines are operational, and all other variables are held constant at 0, the $\beta_0$ represents the estimated likelihood that `status` of a wind infrastructure plant is `operating` is \~ `4.46`. $\beta_1$ tells us there is an estimated decrease of `2.79` in probability that status would be `operating` for the average unit increase in `is_anti_wind` opinion holders. For every average unit increase in `pop_den`, $\beta_2$ predicts `1.09e-04` will increase the `operating status`. The dramatic change in `pop_den` estimated influence on `status` is likely due to an interaction relationship with `med_inc`, which intuitively makes sense.
+
+What is interaction telling us?
+
+$\beta_3$ predicts `5.91e-05` will decrease the `operating status`, for an average unit increase in `pop_den * is_anti_wind`.
+
+Our summary table describes a null deviance `362.60`.(`1178 df`) and residual deviance `292.12` (`1175 df`). Additionally, it provides a p-value of `6.52e-14` for $\beta_1$, indicating that the hypothesis here is rejected because it is drastically smaller than the `significant value of 0.05`. The p-value of $\beta_2$, `0.837` is acceptable because it is within range of the significant value. The p-value of $\beta_3$, `0.931` is acceptable because it is within range of the significant value.
+
+```{r}
+# Regression with interacting beta
+status5 <- summary(glm(status ~ is_anti_wind + pop_den + pop_den * med_inc, 
+                       wind_us,
+                       family = 'binomial'))
+
+status5
+```
+
+##### Population Density \* Median Income
+
+##### $$ \text{status}\ = \beta_0 + \beta_1 \text{is_anti_wind}\_i + \beta_2 \text{pop_den} + \beta_3 \text{pop_den * med_inc} + \varepsilon_i $$
+
+```{r}
+# Regression with interacting beta
+status6 <- glm(status ~ is_anti_wind + pop_den + pop_den + med_inc + median_age + pop_den * med_inc, 
+                       wind_us,
+                       family = 'binomial')
+
+summary(status6)
+```
+
 ## Interpreting Omitted Variable Bias (OVB)
 
-Comparing the corrected $$R^2$$ values in each of the models provided below will assist in the determination of including an additional variable to our
+[Null deviance]{.underline}: tells us how well the response variable can be predicted by a model with only an intercept term.
 
+[Residual Deviance]{.underline}: tells us how well the response variable can be predicted by a model with p predictor variables.
 
+When the **Null Deviance** is really small, it means that the Null Model explains the data pretty well. The same goes for **Residual Deviance**. To best interpret our models, we will compare the `Residual deviance.`
 
+### Comparing Models using anova 
 
+Comparing our 6 residual deviance outputs, models 6 and 4 produced the smallest residual deviance at `288.84` and `289.02` respectively. To determine which is the best fit, we will do an anova assessment.
 
+```{r}
+# this takes into consideration the predicted p value using both the null and residual deviation of each model and determines which more accurately describes the data
+model_comparison <- anova(status6, status4, test = "Chisq") 
 
+model_comparison
+```
 
+Our best fit OLS model is our interaction model 6: $$ \text{status}\ = \beta_0 + \beta_1 \text{is_anti_wind}\_i + + \beta_2 \text{pop_den} + \beta_3 \text{med_inc} + \beta_4 \text{med_age} + \varepsilon_i $$
 
+### Constructing Confidence Interval
 
+#### Best Fit OLS Model 6 
 
+```{r}
+# Constructing a 95% confidence interval
 
+# critical value for 2.5% quantile
+c_val = qt(0.025, df = 26, lower.tail = FALSE) %>% 
+  print()
 
+# confidence interval bounds
+ci_lower <- round(point_est - c_val*SE, 2) %>% 
+  print()
+ci_upper <- round(point_est + c_val*SE, 2) %>% 
+  print()
 
-# maybe not needed 
+# Display output
+print(paste0("95% probability that interval [",ci_lower," ", ci_upper, "] contains the true difference in mean frost days between the North Central and South region."))
+
+```
+
+```{r}
+# since we saved our ols models as objects earlier, we can call them here
+
+# using coef & SE from above to make 95% CI 
+
+ci_lower_murder <- round(murder_model$coefficients[2,'Estimate'] - c_val*murder_model$coefficients[2,'Std. Error'], 2) %>% 
+  print()
+
+ci_upper_murder <- round(murder_model$coefficients[2,'Estimate'] + c_val*murder_model$coefficients[2,'Std. Error'], 2) %>% 
+  print()
+
+print("The first print statment refers to intercept confidence interval, and the second print statement refers to the slope CI")
+print(paste0("95% probability that [", ci_lower_murder, " - ", ci_upper_murder, "] contains the difference in murder rates across the mean number of days that regions experienced frost vs no frost experience"))
+
+```
+
+### Null Hypothesis
+
+After considering the glm
+
+### The null states, that the wind turbine active `status` is unimpacted by the `is_anti_wind` rating.
+
+Two hypothesis presented are
+
+\$H_0: \text{is_anti_wind} - \text{not_anti_wind} = 0\$
+
+$H_A: \text{is_anti_wind} - \text{not_anti_wind} ≠ 0$
+
+##### maybe not needed
+
+Comparing the corrected $R^2$ values in each of the models provided below will assist in the determination of including an additional variable to our
+
+##### Make a table of the coefficients to compare Adj R2 and interpret what the effects of each variable are
+
+-   what adjusted r\^2 is largest and is able to estimate the largest amount of the data in the model?
+
+-   what are the coeff. telling us about their relationship with
 
 ### Visualizing Data Distribution
+
 ```{r}
 wind_vis <- wind_data |>
     mutate(status_factor = factor(status))
@@ -249,9 +357,11 @@ ggplot(data = wind_vis, aes(x = is_anti_wind,
 
 ggplot(data = wind_vis, aes(x = is_anti_wind, fill = status_factor)) +
     geom_histogram()
+
 ```
 
 ### Visualizing Binary Variables
+
 ```{r}
 anti_wind_hist <- ggplot(data = wind_us,
                          aes(x = is_anti_wind)) + 
@@ -297,8 +407,10 @@ status_hist <- ggplot(data = wind_us,
 status_hist
 plot_grid(anti_wind_hist, status_hist)
 ```
+
 #### Q-Q Plot
-The histograms and summary statistics should make you concerned that these data are not normally distributed. As we will show later in the course, it’s often very helpful to have normally distributed data before we do things like linear regressions or hypothesis testing. Here, let’s use a Q-Q plot to assess the normality of our sample data.
+
+The histograms and summary statistics should make you concerned that these data are not normally distributed. As we will show later in the course, it's often very helpful to have normally distributed data before we do things like linear regressions or hypothesis testing. Here, let's use a Q-Q plot to assess the normality of our sample data.
 
 ```{r}
 anti_qq <- ggplot(data = wind_us) +
@@ -345,7 +457,6 @@ status_qq <- ggplot(data = wind_us) +
 plot_grid(anti_qq, status_qq)
 ```
 
-
 ```{r}
 status_factor_qq <- ggplot(data = wind_data) +
   geom_qq(aes(sample = status),
@@ -370,7 +481,6 @@ status_factor_qq <- ggplot(data = wind_data) +
 status_factor_qq
 ```
 
-
 ## Logit
 
 ```{r}
@@ -382,7 +492,3 @@ status_factor_qq
 ```{r}
 
 ```
-
-
-
-
