@@ -25,6 +25,8 @@ library(naniar)
 library(tmap)
 library(terra)
 library(stars)
+library(devtools)
+library(maptiles)
 library(smoothr)          # aesthetic and visual aid for buffers created
 ```
 
@@ -84,28 +86,35 @@ Using the base R function `plot()`, we can see that the geometries stored by thi
 plot(wind_sf$geometry)
 ```
 
+```{r}
+tmap_mode('plot')
+#Create a map to plot the percent of suitable area 
+tm_shape(wind_sf) +
+  tm_bubbles() +                             
+  tm_basemap(server = 'OpenStreetMap') 
+```
+
 # Multivariate Linear Regression Models
 
 ### Variables of interest:
 
-| **Wind Infrastructure Attributes** | **Regional Attributes** | **Legislative Action** |
-|------------------------------|---------------------|---------------------|
-| n_turbs                            | med_inc                 | legislation_use        |
-| status                             | is_anti_wind            | protesters_mean        |
-| year                               | pop_den                 | courts_use             |
-| total_mw                           | med_age                 | letters_use            |
+| Name         | Description                                                                                                 |
+|------------------------------------|------------------------------------|
+| status       | describes the operating status of wind infrastructure, binary variable. 1 is operating, 0 is not_operating. |
+| is_anti_wind | binary variable to describe the public opinion regarding local wind infrastructure.                         |
+| pop_den      | population density of census tract ids within 3km buffer of wind infrastructure.                            |
+| med_inc      | defines the median income of census tract ids within 3km buffer zone of wind infrastructure.                |
+| median_age   | describes the median age of census tract ids within 3 km radius of wind infrastructure.                     |
 
 An attribute from each column will be used to run several multivariate linear regression models. This is to assess the effects of socioeconmic/regional influences on wind infrastructure and the estimated likelihood of participating legislative action when living within a 3km proximity of a wind plant.
 
 ## Determining Variable Assignments for OLS
 
-Question - do i need to adjust these variables? I want the binary variable to be `n_turbs`. This might be redundant though because we are only evaluating houses within turbine regions. In this case, `status` may be a better indicator of SDS because it could better reflect a response as a result of public response. However, as seen below, there are 7 possible outputs for `status` . Should i re-categorize these into two categories: operating and not operating?
-
 ```{r}
 unique(wind_sf$status)     # displays unique values in this
 ```
 
-### Need to reclassify column values
+### Need to rename status output variables
 
 ```{r}
 # creating two categories: operating & not_operating
@@ -148,15 +157,27 @@ wind_us <- wind_us %>%
 print(unique(wind_us$status))
 ```
 
-Binary variable will be `is_anti_wind` column: `anti` is be 1, and `not_anti` will be 0.
+Binary variable will be `status` column: `opertating` is 1, and `not_operating` will be 0.
+
+```{r}
+ggplot(data = wind_us, aes(x = pop_den, y = status)) + 
+  geom_jitter(width = 0, height = 0.05, alpha = 0.8) +
+   labs(x = "Population Density", y = "Wind Infrastructure Operating Status")
+```
 
 #### Proposed Estimation Equations:
 
 The first four equations estimate the likelihood of taking political action when considering a regions' wind turbine status, median income, and median age.
 
-## GLM Linear Regressions with Binomial Family
+## Logistic Regressions with Binomial Family:
 
-### OLS with 1 Binary Variable
+$$logit(p)=log( p / 1−p)=β0+β1x+ε$$
+
+$$
+p̂=e^(β0+β1x1+eβ0+β1x)
+$$
+
+### 1 Binary Variable
 
 $$ \text{status}\ = \beta_0 + \beta_1 \text{is_anti_wind}\_i + \varepsilon_i $$ When wind turbines are operational, and all other variables are held constant at 0, the $\beta_0$ represents the estimated likelihood that `status` of a wind infrastructure plant is `operating` is \~ `4.48`. $\beta_1$ tells us there is an estimated decrease of `2.80` in probability that status would be `operating` for the average unit increase in `is_anti_wind` opinion holders.
 
@@ -246,7 +267,29 @@ status5
 
 ##### Population Density \* Median Income
 
+FIX THE WORDS HERE
+
 ##### $$ \text{status}\ = \beta_0 + \beta_1 \text{is_anti_wind}\_i + \beta_2 \text{pop_den} + \beta_3 \text{pop_den * med_inc} + \varepsilon_i $$
+
+When wind turbines are operational, and all other variables are held constant at 0, the $\beta_0$ represents the estimated likelihood that `status` of a wind infrastructure plant is `operating` is \~ `4.23`.
+
+$\beta_1$ tells us there is an estimated decrease of `2.81` in probability that status would be `operating` for the average unit increase in `is_anti_wind` opinion holders.
+
+For every average unit increase in `pop_den`, $\beta_2$ predicts `1.65e-04` will increase the `operating status`, indicating `pop_den` is an extremely marginal influence, that may potentially be interacting with `is_anti_wind` outlook.
+
+$\beta_3$ predicts `1.79e-05` will decrease the `operating status`, for an average unit increase in `med_inc`.
+
+$\beta_4$ estimates an increase of `2.73e-02` in the `operating status`, for each average unit increase in `med_age`.
+
+Our summary table describes a null deviance `362.60`.(`1178 df`) and residual deviance `289.02` (`1174 df`).
+
+Additionally, it provides a p-value of `9.17e-15` for $\beta_1$, indicating that the hypothesis here is rejected because it is drastically smaller than the `significant value of 0.05`.
+
+The p-value of $\beta_2$, `0.553` is acceptable because it is within range of the significant value.
+
+The p-value of $\beta_3$, `0.096` is acceptable because it is within range of the significant value.
+
+The p-value of $\beta_4$, \~`0.370` is acceptable because it is within range of the significant value.
 
 ```{r}
 # Regression with interacting beta
@@ -259,13 +302,23 @@ summary(status6)
 
 ## Interpreting Omitted Variable Bias (OVB)
 
+$\text{Null Deviance} = \text{2(LL(Saturated Model)} - \text{LL(Null Model)) on df} = \text{df_Sat - df_Null}$
+
 [Null deviance]{.underline}: tells us how well the response variable can be predicted by a model with only an intercept term.
+
+$\text {Residual Deviance} = \text{2(LL(Saturated Model)} - \text{LL(Proposed Model))} \text{df} = \text {df_Sat} - \text{df_Proposed}$
 
 [Residual Deviance]{.underline}: tells us how well the response variable can be predicted by a model with p predictor variables.
 
-When the **Null Deviance** is really small, it means that the Null Model explains the data pretty well. The same goes for **Residual Deviance**. To best interpret our models, we will compare the `Residual deviance.`
+$\text {The Saturated Model is a model that assumes each data point has its own parameters (which means you have n parameters to estimate.)}$
 
-### Comparing Models using anova 
+$\text {The Null Model assumes the exact "opposite", in that is assumes one parameter for all of the data points, which means you only estimate 1 parameter.}$
+
+$\text{The Proposed Model assumes you can explain your data points with p parameters + an intercept term, so you have p+1 parameters.}$
+
+When the **Null Deviance** is really small, it means that the Null Model explains the data pretty well. The same goes for **Residual Deviance\[[1](https://stats.stackexchange.com/questions/108995/interpreting-residual-and-null-deviance-in-glm-r)\]**. To best interpret our models, we will compare the `Residual deviance.`
+
+### Comparing Models using anova
 
 Comparing our 6 residual deviance outputs, models 6 and 4 produced the smallest residual deviance at `288.84` and `289.02` respectively. To determine which is the best fit, we will do an anova assessment.
 
@@ -280,20 +333,36 @@ Our best fit OLS model is our interaction model 6: $$ \text{status}\ = \beta_0 +
 
 ### Constructing Confidence Interval
 
-#### Best Fit OLS Model 6 
+#### Best Fit OLS Model 6
+
+Model 6 is restricted to 1173 degrees of freedom, as output by our earlier OLS exploration. We will apply that value when constructing our 95% Confidence Intervals.
 
 ```{r}
 # Constructing a 95% confidence interval
 
 # critical value for 2.5% quantile
-c_val = qt(0.025, df = 26, lower.tail = FALSE) %>% 
+c_val = qt(0.025, df = 1173, lower.tail = FALSE) %>% 
   print()
 
 # confidence interval bounds
-ci_lower <- round(point_est - c_val*SE, 2) %>% 
+# since we saved our ols models as objects earlier, we can call them here
+
+# using coef & SE from above to make 95% CI 
+
+ci_lower <- round(status6$coefficients[2,'Estimate'] - c_val*status6$coefficients[2,'Std. Error'], 3) %>% 
   print()
-ci_upper <- round(point_est + c_val*SE, 2) %>% 
+
+ci_upper <- round(status6$coefficients[2,'Estimate'] + c_val*status6$coefficients[2,'Std. Error'], 3) %>% 
   print()
+
+print("The first print statment refers to intercept confidence interval, and the second print statement refers to the slope CI")
+print(paste0("95% probability that [", ci_lower_murder, " - ", ci_upper_murder, "] contains the difference in murder rates across the mean number of days that regions experienced frost vs no frost experience"))
+
+
+#ci_lower <- round(point_est - c_val*SE, 2) %>% 
+ # print()
+#ci_upper <- round(point_est + c_val*SE, 2) %>% 
+ # print()
 
 # Display output
 print(paste0("95% probability that interval [",ci_lower," ", ci_upper, "] contains the true difference in mean frost days between the North Central and South region."))
@@ -301,20 +370,11 @@ print(paste0("95% probability that interval [",ci_lower," ", ci_upper, "] contai
 ```
 
 ```{r}
-# since we saved our ols models as objects earlier, we can call them here
 
-# using coef & SE from above to make 95% CI 
-
-ci_lower_murder <- round(murder_model$coefficients[2,'Estimate'] - c_val*murder_model$coefficients[2,'Std. Error'], 2) %>% 
-  print()
-
-ci_upper_murder <- round(murder_model$coefficients[2,'Estimate'] + c_val*murder_model$coefficients[2,'Std. Error'], 2) %>% 
-  print()
-
-print("The first print statment refers to intercept confidence interval, and the second print statement refers to the slope CI")
-print(paste0("95% probability that [", ci_lower_murder, " - ", ci_upper_murder, "] contains the difference in murder rates across the mean number of days that regions experienced frost vs no frost experience"))
 
 ```
+
+### Logit 
 
 ### Null Hypothesis
 
@@ -328,167 +388,8 @@ Two hypothesis presented are
 
 $H_A: \text{is_anti_wind} - \text{not_anti_wind} ≠ 0$
 
-##### maybe not needed
-
-Comparing the corrected $R^2$ values in each of the models provided below will assist in the determination of including an additional variable to our
-
-##### Make a table of the coefficients to compare Adj R2 and interpret what the effects of each variable are
-
--   what adjusted r\^2 is largest and is able to estimate the largest amount of the data in the model?
-
--   what are the coeff. telling us about their relationship with
-
-### Visualizing Data Distribution
+#\-\-\-\-\-\-\-\-\-\-\-\-\-\--idk
 
 ```{r}
-wind_vis <- wind_data |>
-    mutate(status_factor = factor(status))
-
-ggplot(data = wind_vis, aes(x = is_anti_wind,
-                            fill = status,
-                            label = ..count..)) +
-    geom_histogram() +
-  stat_count(breaks = c(0,1),
-             binwidth = 1, 
-             geom = 'text', 
-             color = 'black',
-     position = position_stack(vjust = 0.8)) 
-
-
-ggplot(data = wind_vis, aes(x = is_anti_wind, fill = status_factor)) +
-    geom_histogram()
-
-```
-
-### Visualizing Binary Variables
-
-```{r}
-anti_wind_hist <- ggplot(data = wind_us,
-                         aes(x = is_anti_wind)) + 
-  geom_histogram(stat = "count",
-                 fill="plum") +
-  stat_count(binwidth = 1, 
-             geom = 'text', 
-             color = 'white', 
-             aes(label = ..count..),
-     position = position_stack(vjust = 0.5)) +
-  theme_bw() + theme(
-  line = element_blank(),
-  panel.grid = element_blank(),
-  rect = element_blank(),
-  strip.text = element_blank(),
-  axis.text.x = element_text(size = 14),
-  axis.text.y = element_blank(),
-  legend.position = "none") +
-  labs(x = "Is Anti Wind Opinion Distribution") 
-
-anti_wind_hist
-
-status_hist <- ggplot(data = wind_us,
-                      aes(x = status)) + 
-  geom_histogram(stat = "count",
-                 fill = "seagreen") +
-  stat_count(binwidth = 1, 
-             geom = 'text', 
-             color = 'white', 
-             aes(label = ..count..),
-             position = position_stack(vjust = 0.5)) +
-  theme_bw() + 
-  theme(
-    line = element_blank(),
-    panel.grid = element_blank(),
-    rect = element_blank(),
-    strip.text = element_blank(),
-    axis.text.x = element_text(size = 14),
-    axis.text.y = element_blank(),
-    legend.position = "none") +
-  labs(x = "Wind Infrastructure Operation Status Distribution") 
-
-status_hist
-plot_grid(anti_wind_hist, status_hist)
-```
-
-#### Q-Q Plot
-
-The histograms and summary statistics should make you concerned that these data are not normally distributed. As we will show later in the course, it's often very helpful to have normally distributed data before we do things like linear regressions or hypothesis testing. Here, let's use a Q-Q plot to assess the normality of our sample data.
-
-```{r}
-anti_qq <- ggplot(data = wind_us) +
-  geom_qq(aes(sample = is_anti_wind),
-          color = "plum",
-          size = 3) +
-  geom_qq_line(aes(sample = is_anti_wind),
-               color="grey") +
-  xlab("Normal distribution quantiles") +
-  ylab("Sample quantiles") +
-  theme_bw() + 
-  theme(
-    line = element_blank(),
-    panel.grid = element_blank(),
-    rect = element_blank(),
-    strip.text = element_blank(),
-    axis.text.x = element_text(size = 10),
-    axis.text.y = element_text(size = 10),
-    axis.title = element_text(size=10, 
-                              face="bold"),
-    plot.title = element_blank(),
-    legend.position = "none")
-
-status_qq <- ggplot(data = wind_us) +
-  geom_qq(aes(sample = status),
-          color = "seagreen",
-          size=3) +
-  geom_qq_line(aes(sample = status),
-               color="grey") +
-  xlab("Normal distribution quantiles") +
-  ylab("Sample quantiles") + 
-  theme_bw() + 
-  theme(
-    line = element_blank(),
-    panel.grid = element_blank(),
-    rect = element_blank(),
-    strip.text = element_blank(),
-    axis.text.x = element_text(size = 10),
-    axis.text.y = element_text(size = 10),
-    axis.title = element_text(size=10,face="bold"),
-    plot.title = element_blank(),
-    legend.position = "none")
-
-plot_grid(anti_qq, status_qq)
-```
-
-```{r}
-status_factor_qq <- ggplot(data = wind_data) +
-  geom_qq(aes(sample = status),
-          color = "seagreen",
-          size=3) +
-  geom_qq_line(aes(sample = status),
-               color="grey") +
-  xlab("Normal distribution quantiles") +
-  ylab("Sample quantiles") + 
-  theme_bw() + 
-  theme(
-    line = element_blank(),
-    panel.grid = element_blank(),
-    rect = element_blank(),
-    strip.text = element_blank(),
-    axis.text.x = element_text(size = 10),
-    axis.text.y = element_text(size = 10),
-    axis.title = element_text(size=10,face="bold"),
-    plot.title = element_blank(),
-    legend.position = "none")
-
-status_factor_qq
-```
-
-## Logit
-
-```{r}
-
-```
-
-## Log Odds
-
-```{r}
-
+ggplot(data= wind_us, aes(x = status, y = pop_den)) + geom_jitter(alpha=0.1, size=3) + geom_smooth(method='lm', formula= y~x, color="lightcoral", se=F, size=1.5) + theme_bw() + geom_hline(yintercept=0, color="seagreen")
 ```
