@@ -109,7 +109,6 @@ An attribute from each column will be used to run several multivariate linear re
 ```{r}
 unique(wind_sf$status)     # displays unique values in this
 ```
-
 ### Need to reclassify column values
 
 ```{r}
@@ -142,10 +141,13 @@ print(unique(wind_us$status))
 wind_us <- wind_us %>% 
   mutate(status = as.factor(wind_us$status)) %>% 
   mutate(status = if_else(
-    status %in% 'operating', 1,
-    status %in% "not_operating", 0
+    status == 'not_operating', 0, 1
   )
 )
+
+wind_us <- wind_us %>% 
+  mutatue(status = case_when(status == "operating" ~ 1,
+            status == "not_operating" ~ 0))
 
 # are our only outputs 0 or 1?
 print(unique(wind_us$status))
