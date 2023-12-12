@@ -5,6 +5,9 @@
 # Session Data files
 .RData
 .RDataTmp
+.overcomplicating
+.SPS_Wind_Infrastructure
+.rosm
 
 # User-specific files
 .Ruserdata
