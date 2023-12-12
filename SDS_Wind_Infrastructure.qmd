@@ -20,10 +20,16 @@ The following libraries were selected based on their functionality and ability t
 library(tidyverse)        # essential r package 
 library(sf)               # package simplifies spatial dataframes
 library(cowplot)
+library(spData)
 library(raster)
+library(ggspatial)
+library(prettymapr)
+library(ggmap)
 library(naniar)
 library(tmap)
 library(terra)
+library(patchwork)
+library(broom)
 library(stars)
 library(devtools)
 library(maptiles)
@@ -58,10 +64,10 @@ Below we will use the package `sf` to convert the lat/long data into a raster ge
 
 ```{r}
 wind_sf <- wind_data %>%             # calls desired dataset
-  st_as_sf(coords = c("longitude", "latitude"), crs = 3857) 
+  st_as_sf(coords = c("longitude", "latitude"), crs = 4326) 
                                      # creates geometry column with desired crs 
 
-glimpse(crs(wind_sf))                  # output should reveal WGS84, EPSG:4326
+crs(wind_sf)                  # output should reveal WGS84, EPSG:4326
 ```
 
 #### Check-point
@@ -83,28 +89,25 @@ Using the base R function `plot()`, we can see that the geometries stored by thi
 
 ```{r}
 # First visual of the U.S. wind data provided by the geometry points
-plot(wind_sf$geometry)
-```
+wind_plants <- ggplot(wind_sf) +
+  annotation_map_tile(type = "osm") +
+  geom_sf(col = 'darkgreen',
+          alpha = 0.5,
+          size = 3) 
 
-```{r}
-tmap_mode('plot')
-#Create a map to plot the percent of suitable area 
-tm_shape(wind_sf) +
-  tm_bubbles() +                             
-  tm_basemap(server = 'OpenStreetMap') 
+wind_plants
 ```
 
 # Multivariate Linear Regression Models
 
-### Variables of interest:
+### Variables of Interest:
 
-| Name         | Description                                                                                                 |
+| Name       | Description                                                                                                 |
 |------------------------------------|------------------------------------|
-| status       | describes the operating status of wind infrastructure, binary variable. 1 is operating, 0 is not_operating. |
-| is_anti_wind | binary variable to describe the public opinion regarding local wind infrastructure.                         |
-| pop_den      | population density of census tract ids within 3km buffer of wind infrastructure.                            |
-| med_inc      | defines the median income of census tract ids within 3km buffer zone of wind infrastructure.                |
-| median_age   | describes the median age of census tract ids within 3 km radius of wind infrastructure.                     |
+| status     | describes the operating status of wind infrastructure, binary variable. 1 is operating, 0 is not_operating. |
+| pop_den    | population density of census tract ids within 3km buffer of wind infrastructure.                            |
+| med_inc    | defines the median income of census tract ids within 3km buffer zone of wind infrastructure.                |
+| median_age | describes the median age of census tract ids within 3 km radius of wind infrastructure.                     |
 
 An attribute from each column will be used to run several multivariate linear regression models. This is to assess the effects of socioeconmic/regional influences on wind infrastructure and the estimated likelihood of participating legislative action when living within a 3km proximity of a wind plant.
 
@@ -159,146 +162,216 @@ print(unique(wind_us$status))
 
 Binary variable will be `status` column: `opertating` is 1, and `not_operating` will be 0.
 
+### Initial Visualization of Categorical Response Variable
+
+Our initial visualization demonstrates a correlation between smaller population density and wind infrastructure plants operating. This is likely associated with weight placed on voters in regions with smaller demographics. Local mobilization of minority opinion holders in these regions have a greater availabilty to push back against policymakers. However, this visual does not encapsulate all of the necessary information required to determine this with full certainty.
+
 ```{r}
-ggplot(data = wind_us, aes(x = pop_den, y = status)) + 
-  geom_jitter(width = 0, height = 0.05, alpha = 0.8) +
-   labs(x = "Population Density", y = "Wind Infrastructure Operating Status")
+# visualization of relationship
+jitter_plot <- ggplot(data = wind_us, 
+                      aes(x = pop_den,
+                          y = status)) + 
+  geom_jitter(col = 'plum',
+              fill = "purple",
+              width = 0,
+              height = 0.05,
+              alpha = 0.45,
+              size = 6) +
+  labs(title = "Population Density & Wind Infrastructure Activation Status",
+       x = "Population Density",
+       y = "Wind Infrastructure Operating Status")
+
+jitter_plot
 ```
 
-#### Proposed Estimation Equations:
+#### Logistic Regressions with Binomial Family:
 
-The first four equations estimate the likelihood of taking political action when considering a regions' wind turbine status, median income, and median age.
-
-## Logistic Regressions with Binomial Family:
+#### UPDATE ALL BETAS TO MATCH NEW REGRESSIONS
 
 $$logit(p)=log( p / 1−p)=β0+β1x+ε$$
+
+The model that we just fit tells us that:
+
+$$logit(p̂)=log(p̂1−p̂)=1.56−0.05847x$$
+
+to then solve for p:
 
 $$
 p̂=e^(β0+β1x1+eβ0+β1x)
 $$
 
+Alternatively, you can solve for p using $R^2$ The `uniroot` function searches over the provided interval to find the zero value of the function provided. We pass the expression that should equal zero, and it finds us the p that ensures it equals zero.
+
+```         
+toSolve <- function(p) {(1-p)*exp(1.56-0.05847*64) - p}
+
+uniroot(toSolve, interval = c(0, 1))$root
+```
+
 ### 1 Binary Variable
 
-$$ \text{status}\ = \beta_0 + \beta_1 \text{is_anti_wind}\_i + \varepsilon_i $$ When wind turbines are operational, and all other variables are held constant at 0, the $\beta_0$ represents the estimated likelihood that `status` of a wind infrastructure plant is `operating` is \~ `4.48`. $\beta_1$ tells us there is an estimated decrease of `2.80` in probability that status would be `operating` for the average unit increase in `is_anti_wind` opinion holders.
+$$ \text{status}\ = \beta_0 + \beta_1 \text{pop_den}\_i + \varepsilon_i $$ When wind turbines are operational, and all other variables are held constant at 0, the $\beta_0$ represents the estimated likelihood that `status` of a wind infrastructure plant is `operating` is \~ `4.48`. $\beta_1$ tells us there is an estimated decrease of `2.80` in probability that status would be `operating` for the average unit increase in `is_anti_wind` opinion holders.
 
 Our summary table describes a null deviance `362.89`.(`1182 df`) and residual deviance `292.28` (`1181 df`). Additionally, it provides a p-value of `8.1e-15` for $\beta_1$, indicating that the hypothesis here is rejected because it is drastically smaller than the `significant value of 0.05`. However, I am still not convinced there isn't a correlation between the two, so let's explore how our numbers change as we incorporate more variables into our equation.
 
 ```{r}
 # Inital regression 1 betas for null
-status1 <- summary(glm(status ~ is_anti_wind,
+# not a summary
+status <- glm(status ~ pop_den,
+                       wind_us,
+                       family = 'binomial')
+# summary to access coefficients
+status1 <- summary(glm(status ~ pop_den,
                        wind_us,
                        family = 'binomial'))
 
 # show me a summary table 
-summary(status1)
+status1
 ```
 
-## Assessing Omitted Variables Bias in OLS
+### Finding P
+
+$logit(p)=log(p/1−p)=β0+β1x+ε$
+
+We're going to solve for a range of p values using $R^2$. We're curious about the probabilty of `operating` wind plants for Population Density at `900,000`, `26,000`, and `6,000.` UNITS!!!
+
+```{r}
+# creating a function to to describe the logistic regression model
+# 100,000 
+fun <- function(p) {
+  (1 - p)*exp(status1$coefficients[1,'Estimate'] + (status1$coefficients[2,'Estimate']*100000)) - p
+}
+
+# 
+uniroot(fun, interval = c(0,1))$root
+
+# 26000
+fun <- function(p) {
+  (1 - p)*exp(status1$coefficients[1,'Estimate'] + (status1$coefficients[2,'Estimate']*26000)) - p
+}
+
+# 
+uniroot(fun, interval = c(0,1))$root
+
+# 6000
+fun <- function(p) {
+  (1 - p)*exp(status1$coefficients[1,'Estimate'] + (status1$coefficients[2,'Estimate']*6000)) - p
+}
+
+# 
+uniroot(fun, interval = c(0,1))$root
+```
+
+### Logistic Regression Visualization
+
+This visual is very interesting and definitely explains why the $R^2$ value is only giving values in the 0.9 range. Since our data contains a significant number of `operating` wind plants for a wide range of population densities, the regression model is producing a fit according to the `operating` status. The values in the `not_opertating` status appear to be considered similar to that of an outlier.
+
+```{r warning = FALSE}
+jitter_plot  + 
+  geom_smooth(method = "lm",
+              se = FALSE,
+              color = 'blue') + 
+  geom_smooth(method = "glm",
+              se = FALSE,
+              color = "hotpink",
+              size = 1,
+              method.args = list(family = "binomial"))
+## `geom_smooth()` using formula = 'y ~ x'
+## `geom_smooth()` using formula = 'y ~ x'
+```
+
+### Interpreting Coefficients Using Odds Ratio
+
+To better interpret this relationship, we are going to change the scale of the variable on the y-axis. Now, we will be considering the odds, rather than the probability. While these two concepts are often conflated, they are not the same\[[2](https://tcarleton.github.io/EDS-222-stats/labs/06-week-six/week-6-lab-answers.html)\]. They are however, related by the simple formula below.
+
+The **odds** of a binary event are the ratio of how often it happens, to how often it doesn't happen.
+
+$odds(p̂)=p̂1−p̂=exp(β̂0+β̂1⋅x)$
+
+We're going create an `odds_hat` variable for predicted odds.
+
+That is, the ratio of the odds *after* a one unit increase in x to the odds *before*that one unit change is equal to eβ1. **Notice this doesn't depend on** x anymore! Therefore, it's a useful interpretation of coefficients.
+
+```{r}
+status_popden_predicted_odds <-  status %>%
+  augment(type.predict = "response") %>%
+  mutate(y_hat = .fitted) %>% 
+  mutate(odds_hat = y_hat / (1 - y_hat))
+
+status_popden_predicted_odds
+```
+
+This is an "odds ratio", meaning we care about how this number differs from 1. If it's greater than 1, then the odds increase when x increases. Conversely, if it's less than 1, then the odds decrease.
+
+By how much does our model predict that the odds of `operating status` will change with each additional unit increase in population density?
+
+```{r}
+exp(status1$coefficients[2,'Estimate'])
+```
+
+**Answer:** Our model estimates that one unit increase in population density is associated with a change in the odds ratio of $e^(0.0001793) =1.000179$, or a 1.79e-04% increase in the odds of wind plant having an `operating` status.
+
+### Applying a Logistic Model
+
+Assessing Omitted Variables Bias in OLS
+
+**words are wrong**
 
 ### OLS with 2 Variables
 
-$$ \text{status}\ = \beta_0 + \beta_1 \text{is_anti_wind}\_i + \beta_2 \text{pop_den} + \varepsilon_i $$ When wind turbines are operational, and all other variables are held constant at 0, the $\beta_0$ represents the estimated likelihood that `status` of a wind infrastructure plant is `operating` is \~ `4.47`. $\beta_1$ tells us there is an estimated decrease of `2.79` in probability that status would be `operating` for the average unit increase in `is_anti_wind` opinion holders. For every average unit increase in `pop_den`, $\beta_2$ predicts `7.6e-05` will increase the `operating status`, indicating `pop_den` is an extremely marginal influence, that may potentially be interacting with `is_anti_wind` outlook.
+$$ \text{status}\ = \beta_0 + \beta_1 \text{pop_den}\_i + \beta_2 \text{med_inc} + \varepsilon_i $$ When wind turbines are operational, and all other variables are held constant at 0, the $\beta_0$ represents the estimated likelihood that status of a wind infrastructure plant is operating is \~ 4.03. $\beta_1$ tells us there is an estimated decrease of 2.47e-4 in probability that status would be operating for the average unit increase in is_anti_wind opinion holders. For every average unit increase in pop_den, $\beta_2$ predicts 1.50e-05 will increase the operating status, indicating pop_den is an extremely marginal influence, that may potentially be interacting with is_anti_wind outlook.
 
-Our summary table describes a null deviance `362.60`.(`1178 df`) and residual deviance `292.13` (`1176 df`). Additionally, it provides a p-value of `9.5e-15` for $\beta_1$, indicating that the hypothesis here is rejected because it is drastically smaller than the `significant value of 0.05`. The p-value of $\beta_2$, `0.819` is acceptable because it is within range of the significant value.
+Our summary table describes a null deviance 362.60.(1178 df) and residual deviance 359.84 (1176 df). Additionally, it provides a p-value of 0.5 for $\beta_1$, indicating that the hypothesis here is accepted because it is greater than the significant value of 0.05. The p-value of $\beta_2$, 0.957s is acceptable because it is above range of the significant value.
 
 ```{r}
 # Initial regression 2 betas for null
-status2 <- summary(glm(status ~ is_anti_wind + pop_den,
-                       wind_us,
-                       family = 'binomial'))
+status2 <- summary(glm(status ~ pop_den + med_inc,
+               wind_us,
+               family = 'binomial'))
 
-summary(status2)
+status2
 ```
+
+#### Interpreting Coefficients using Odds Ratio
+
+```{r}
+# beta1 estimation exponentiated
+exp(status2$coefficients[2,'Estimate'])
+# beta2 estimation exponentiated
+ 1 - exp(status2$coefficients[3,'Estimate'])
+```
+
+By including the median income variable in our model and exponentiating the coefficients, we see a huge effect. Areas with an increase in population density observed an increase in their odds of having active wind infrastructure by a factor of 2.48e-04% when controlling the median income. However, the odds of operating status decrease by 1.5e-05 for each average unit increase in median income.
+
+## Probabilistic Predictions
+
+#\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\--
 
 ### OLS with 3 Variables
 
-$$ \text{status}\ = \beta_0 + \beta_1 \text{is_anti_wind}\_i + + \beta_2 \text{pop_den } + \beta_3 \text{med_inc} + \varepsilon_i $$ When wind turbines are operational, and all other variables are held constant at 0, the $\beta_0$ represents the estimated likelihood that `status` of a wind infrastructure plant is `operating` is \~ `5.35`. $\beta_1$ tells us there is an estimated decrease of `2.80` in probability that status would be `operating` for the average unit increase in `is_anti_wind` opinion holders. For every average unit increase in `pop_den`, $\beta_2$ predicts `1.65e-04` will increase the `operating status`. The dramatic change in `pop_den` estimated influence on `status` is likely due to an interaction relationship with `med_inc`, which intuitively makes sense. $\beta_3$ predicts `1.74e-04` will decrease the `operating status`, for an average unit increase in `med_inc`.
+$$ \text{status}\ = \beta_0 + \beta_1 \text{pop_den}\_i + + \beta_2 \text{med_inc} + \beta_3 \text{median_age} + \varepsilon_i $$ When wind turbines are operational, and all other variables are held constant at 0, the $\beta_0$ represents the estimated likelihood that status of a wind infrastructure plant is operating is \~ 5.35. $\beta_1$ tells us there is an estimated decrease of 2.80 in probability that status would be operating for the average unit increase in is_anti_wind opinion holders. For every average unit increase in pop_den, $\beta_2$ predicts 1.65e-04 will increase the operating status. The dramatic change in pop_den estimated influence on status is likely due to an interaction relationship with med_inc, which intuitively makes sense. $\beta_3$ predicts 1.74e-04 will decrease the operating status, for an average unit increase in med_inc.
 
-Our summary table describes a null deviance `362.60`.(`1178 df`) and residual deviance `289.8` (`1175 df`). Additionally, it provides a p-value of `1.03e-14` for $\beta_1$, indicating that the hypothesis here is rejected because it is drastically smaller than the `significant value of 0.05`. The p-value of $\beta_2$, `0.668` is acceptable because it is within range of the significant value. The p-value of $\beta_3$, `0.103` is acceptable because it is within range of the significant value.
+Our summary table describes a null deviance 362.60.(1178 df) and residual deviance 289.8 (1175 df). Additionally, it provides a p-value of 1.03e-14 for $\beta_1$, indicating that the hypothesis here is rejected because it is drastically smaller than the significant value of 0.05. The p-value of $\beta_2$, 0.668 is acceptable because it is within range of the significant value. The p-value of $\beta_3$, 0.103 is acceptable because it is within range of the significant value.
 
 ```{r}
 # Regression with 3 beta
-status3 <- summary(glm(status ~ is_anti_wind + pop_den + med_inc, 
+status3 <- glm(status ~ pop_den + med_inc + median_age, 
                        wind_us,
-                       family = 'binomial'))
+                       family = 'binomial')
 
 summary(status3)
 ```
 
-### OLS with 4 Variables
-
-$$ \text{status}\ = \beta_0 + \beta_1 \text{is_anti_wind}\_i + + \beta_2 \text{pop_den} + \beta_3 \text{med_inc} + \beta_4 \text{med_age} + \varepsilon_i $$
-
-When wind turbines are operational, and all other variables are held constant at 0, the $\beta_0$ represents the estimated likelihood that `status` of a wind infrastructure plant is `operating` is \~ `4.23`. $\beta_1$ tells us there is an estimated decrease of `2.81` in probability that status would be `operating` for the average unit increase in `is_anti_wind` opinion holders. For every average unit increase in `pop_den`, $\beta_2$ predicts `1.65e-04` will increase the `operating status`, indicating `pop_den` is an extremely marginal influence, that may potentially be interacting with `is_anti_wind` outlook. $\beta_3$ predicts `1.79e-05` will decrease the `operating status`, for an average unit increase in `med_inc`. $\beta_4$ estimates an increase of `2.73e-02` in the `operating status`, for each average unit increase in `med_age`.
-
-Our summary table describes a null deviance `362.60`.(`1178 df`) and residual deviance `289.02` (`1174 df`). Additionally, it provides a p-value of `9.17e-15` for $\beta_1$, indicating that the hypothesis here is rejected because it is drastically smaller than the `significant value of 0.05`. The p-value of $\beta_2$, `0.553` is acceptable because it is within range of the significant value. The p-value of $\beta_3$, `0.096` is acceptable because it is within range of the significant value. The p-value of $\beta_4$, \~`0.370` is acceptable because it is within range of the significant value.
+#### Interpreting Coefficients using Odds Ratio
 
 ```{r}
-# Regression with 4
-status4 <- glm(status ~ is_anti_wind + pop_den + med_inc + median_age, 
-                       wind_us,
-                       family = 'binomial')
-
-summary(status4)
+# beta1 estimation exponentiated
+exp(status2$coefficients[2,'Estimate'])
+# beta2 estimation exponentiated
+ 1 - exp(status2$coefficients[3,'Estimate'])
 ```
 
-### OLS with Interacting Variables
-
-##### Population Density \* Is Anti Wind Opinion
-
-$$ \text{status}\ = \beta_0 + \beta_1 \text{is_anti_wind}\_i + \beta_2 \text{pop_den} + \beta_3 \text{pop_den * is_anti_wind} + \varepsilon_i $$
-
-When wind turbines are operational, and all other variables are held constant at 0, the $\beta_0$ represents the estimated likelihood that `status` of a wind infrastructure plant is `operating` is \~ `4.46`. $\beta_1$ tells us there is an estimated decrease of `2.79` in probability that status would be `operating` for the average unit increase in `is_anti_wind` opinion holders. For every average unit increase in `pop_den`, $\beta_2$ predicts `1.09e-04` will increase the `operating status`. The dramatic change in `pop_den` estimated influence on `status` is likely due to an interaction relationship with `med_inc`, which intuitively makes sense.
-
-What is interaction telling us?
-
-$\beta_3$ predicts `5.91e-05` will decrease the `operating status`, for an average unit increase in `pop_den * is_anti_wind`.
-
-Our summary table describes a null deviance `362.60`.(`1178 df`) and residual deviance `292.12` (`1175 df`). Additionally, it provides a p-value of `6.52e-14` for $\beta_1$, indicating that the hypothesis here is rejected because it is drastically smaller than the `significant value of 0.05`. The p-value of $\beta_2$, `0.837` is acceptable because it is within range of the significant value. The p-value of $\beta_3$, `0.931` is acceptable because it is within range of the significant value.
-
-```{r}
-# Regression with interacting beta
-status5 <- summary(glm(status ~ is_anti_wind + pop_den + pop_den * med_inc, 
-                       wind_us,
-                       family = 'binomial'))
-
-status5
-```
-
-##### Population Density \* Median Income
-
-FIX THE WORDS HERE
-
-##### $$ \text{status}\ = \beta_0 + \beta_1 \text{is_anti_wind}\_i + \beta_2 \text{pop_den} + \beta_3 \text{pop_den * med_inc} + \varepsilon_i $$
-
-When wind turbines are operational, and all other variables are held constant at 0, the $\beta_0$ represents the estimated likelihood that `status` of a wind infrastructure plant is `operating` is \~ `4.23`.
-
-$\beta_1$ tells us there is an estimated decrease of `2.81` in probability that status would be `operating` for the average unit increase in `is_anti_wind` opinion holders.
-
-For every average unit increase in `pop_den`, $\beta_2$ predicts `1.65e-04` will increase the `operating status`, indicating `pop_den` is an extremely marginal influence, that may potentially be interacting with `is_anti_wind` outlook.
-
-$\beta_3$ predicts `1.79e-05` will decrease the `operating status`, for an average unit increase in `med_inc`.
-
-$\beta_4$ estimates an increase of `2.73e-02` in the `operating status`, for each average unit increase in `med_age`.
-
-Our summary table describes a null deviance `362.60`.(`1178 df`) and residual deviance `289.02` (`1174 df`).
-
-Additionally, it provides a p-value of `9.17e-15` for $\beta_1$, indicating that the hypothesis here is rejected because it is drastically smaller than the `significant value of 0.05`.
-
-The p-value of $\beta_2$, `0.553` is acceptable because it is within range of the significant value.
-
-The p-value of $\beta_3$, `0.096` is acceptable because it is within range of the significant value.
-
-The p-value of $\beta_4$, \~`0.370` is acceptable because it is within range of the significant value.
-
-```{r}
-# Regression with interacting beta
-status6 <- glm(status ~ is_anti_wind + pop_den + pop_den + med_inc + median_age + pop_den * med_inc, 
-                       wind_us,
-                       family = 'binomial')
-
-summary(status6)
-```
+#\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\--
 
 ## Interpreting Omitted Variable Bias (OVB)
 
@@ -374,7 +447,7 @@ print(paste0("95% probability that interval [",ci_lower," ", ci_upper, "] contai
 
 ```
 
-### Logit 
+### Logit
 
 ### Null Hypothesis
 
