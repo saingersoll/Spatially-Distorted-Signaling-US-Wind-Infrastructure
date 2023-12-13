@@ -36,6 +36,7 @@ library(ggspatial)
 library(prettymapr)
 library(ggmap)
 library(naniar)
+library(gt)
 library(tmap)
 library(terra)
 library(patchwork)
@@ -111,12 +112,12 @@ wind_plants
 
 ### Variables of Interest:
 
-| Name       | Description                                                                                                 |
+| Name         | Description                                                                                                                             |
 |------------------------------------|------------------------------------|
-| status     | describes the operating status of wind infrastructure, binary variable. 1 is operating, 0 is not_operating. |
-| pop_den    | population density of census tract ids within 3km buffer of wind infrastructure.                            |
-| med_inc    | defines the median income of census tract ids within 3km buffer zone of wind infrastructure.                |
-| median_age | describes the median age of census tract ids within 3 km radius of wind infrastructure.                     |
+| status       | Describes the project operating status. In this study, we have converted it into a binary variable: 1 is operating, 0 is not_operating. |
+| pop_den      | Tract-level 2010 census data for population density (per mi\^2)                                                                         |
+| med_inc      | Tract-level 2010 census data for median income                                                                                          |
+| is_anti_wind | Binary measure of wind opposition                                                                                                       |
 
 An attribute from each column will be used to run several multivariate linear regression models. This is to assess the effects of socioeconmic/regional influences on wind infrastructure and the estimated likelihood of participating legislative action when living within a 3km proximity of a wind plant.
 
@@ -229,11 +230,10 @@ status1
 
 So far, we haven't been able to gather very much useful information to describe our model predictions. If this were a typical OLS, our model would be telling us:
 
--    When wind turbines are operational, and all other variables are held constant at 0, the $\beta_0$ represents the estimated likelihood that `status` of a wind infrastructure plant is `operating` is \~ `3.27`.
+-   When wind turbines are operational, and all other variables are held constant at 0, the $\beta_0$ represents the estimated likelihood that `status` of a wind infrastructure plant is `operating` is \~ `3.27`.
 
-```{=html}
 <!-- -->
-```
+
 -   $\beta_1$ tells us there is an estimated increase of `1.79e-04` in probability that status would be `operating` for the average unit increase in `pop_den`.
 
 Since we're working with a binomial family, the p-values produced in the `glm()` need to be further extrapolated before they may be used to interpret our model.
@@ -307,15 +307,14 @@ The **odds** of a binary event are the ratio of how often it happens, to how o
 
 $odds(p̂)=p̂1−p̂=exp(β̂0+β̂1⋅x)$
 
-We're going create an `status_popden_odds` variable for predicted odds.
-
-That is, the ratio of the odds *after* a one unit increase in x to the odds *before* that one unit change is equal to eβ1. **Notice this doesn't depend on** x anymore! Therefore, it's a useful interpretation of coefficients.
+We're going create an `odds_hat` variable for predicted odds. The ratio of the odds *after* a single unit increase in x to the odds *before* that one unit change is equal to eβ1. **Notice this doesn't depend on** x anymore! Therefore, it's a useful interpretation of coefficients.
 
 ```{r}
 status_popden_predicted_odds <-  status %>%
   augment(type.predict = "response") %>%
   mutate(y_hat = .fitted) %>% 
-  mutate(odds_hat = y_hat / (1 - y_hat))
+  mutate(odds_hat = y_hat / (1 - y_hat)) %>% 
+  gt()
 
 status_popden_predicted_odds
 ```
@@ -338,7 +337,7 @@ $$ \text{status}\ = \beta_0 + \beta_1 \text{pop_den}\_i + \beta_2 \text{med_inc}
 
 -   Additionally, it provides a p-value of 0.511 for $\beta_1$, indicating that the hypothesis here is accepted because it is greater than the significant value of 0.05.
 
--   The p-value of $\beta_2$, 0.957s is acceptable because it is above range of the significant value.
+-   The p-value of $\beta_2$, 0.957 is acceptable because it is above range of the significant value.
 
 ```{r}
 status_2 <- glm(status ~ pop_den + med_inc,
@@ -381,7 +380,8 @@ We are going to making some probability predictions using out-of-sample predicti
 
 ```{r}
 # probability scale
-probability_predictions <- augment(status_2, type.predict = "response")
+probability_predictions <- augment(status_2, type.predict = "response") %>% 
+  gt()
 
 probability_predictions
 ```
@@ -391,7 +391,8 @@ For example, our model predicts the odds that an area with a population density 
 ```{r}
 exploring_model <- data.frame(pop_den = 124, med_inc = 46094)
 
-augment(status_2, newdata = exploring_model, type.predict = "response")
+augment(status_2, newdata = exploring_model, type.predict = "response") %>% 
+  gt()
 ```
 
 ## Binary Predictions
@@ -402,7 +403,7 @@ $$ \text{status}\ = \beta_0 + \beta_1 \text{pop_den}\_i + + \beta_2 \text{is_ant
 
 -   Our summary table describes a null deviance 362.60.(1178 df) and residual deviance 289.8 (1175 df).
 
--   Additionally, it provides a p-value of 1.03e-14 for $\beta_1$, indicating that the hypothesis here is rejected because it is drastically smaller than the significant value of 0.05.
+-   Additionally, it provides a p-value of 0.819 for $\beta_1$, indicating that the hypothesis here is accepted because it is drastically smaller than the significant value of 0.05.
 
 -   The p-value of $\beta_2$, 0.668 is acceptable because it is within range of the significant value.
 
@@ -444,7 +445,8 @@ status_binary <- augment(status_3, type.predict = "response") %>%
     mutate(operating_hat = round(.fitted))
   
 binary_predictions <- status_binary %>%
-  dplyr::select(status, pop_den, is_anti_wind, .fitted, operating_hat)
+  dplyr::select(status, pop_den, is_anti_wind, .fitted, operating_hat) %>% 
+  gt()
 
 binary_predictions
 ```

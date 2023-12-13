@@ -496,9 +496,9 @@ Binary variable will be `is_anti_wind` column: `anti` is be 1, and `not_anti` wi
 
 The first four equations estimate the likelihood of taking political action when considering a regions' wind turbine status, median income, and median age.
 
-$$ \text{status}\ = \beta_0 + \beta_1 \text{is_anti_wind}\_i + + \beta_2 \text{med_inc} + \beta_3 \text{med_age} + \beta_4 \text{pop_den} + \varepsilon_i $$
+$$ \text{status}\ = \beta_0 + \beta_1 \text{is_anti_wind}\_i +  + \varepsilon_i $$
 
-$$ \text{status}\ = \beta_0 + \beta_1 \text{is_anti_wind}\_i + + \beta_2 \text{med_inc} + \beta_3 \text{med_age} + \beta_4 \text{pop_den}+ \beta_5 \text{n_turbs} + \varepsilon_i $$
+$$ \text{status}\ = \beta_0 + \beta_1 \text{is_anti_wind}\_i + + \beta_2 \text{pop_den} + \varepsilon_i $$
 
 $$ \text{status}\ = \beta_0 + \beta_1 \text{is_anti_wind}\_i + + \beta_2 \text{legislation_use }+ \beta_3 \text{med_inc} + \beta_4 \text{med_age} + \beta_5 \text{pop_den} + \varepsilon_i $$
 
@@ -582,9 +582,9 @@ $$
 
 $$ H_0\: \beta_0 + \beta_1 \text{is_anti_wind}\_i + + \beta_2 \text{pop_den} + \varepsilon_i $$
 
-### Point Estimates 
+### Point Estimates
 
-Use the complete version of the `ncbirths` data to estimate the \"point estimate\", which in this case is a difference in means between the two groups of mothers.
+Use the complete version of the `ncbirths` data to estimate the "point estimate", which in this case is a difference in means between the two groups of mothers.
 
 ```{r}
 # Mean of is_anti_wind
@@ -618,7 +618,7 @@ print(point_est)
 ## [1] 0.3155425
 ```
 
-This doesn\'t look like \"no difference\", and it\'s consistent with our prior that non-smoking mothers should have higher birth weight babies. But remember that to conduct a hypothesis test we need a measure of variability, not just a measure of the mean.
+This doesn't look like "no difference", and it's consistent with our prior that non-smoking mothers should have higher birth weight babies. But remember that to conduct a hypothesis test we need a measure of variability, not just a measure of the mean.
 
 #\-\--
 
