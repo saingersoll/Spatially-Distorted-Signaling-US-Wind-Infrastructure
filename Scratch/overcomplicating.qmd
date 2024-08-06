@@ -1,0 +1,194 @@
+OLS with Interacting Variables
+
+Population Density * Is Anti Wind Opinion
+
+$$ \text{status}\ = \beta_0 + \beta_1 \text{pop_den}\_i + \beta_2 \text{med_inc} + \beta_3 \text{pop_den * med_inc} + \varepsilon_i $$
+
+When wind turbines are operational, and all other variables are held constant at 0, the $\beta_0$ represents the estimated likelihood that status of a wind infrastructure plant is operating is ~ 4.46. $\beta_1$ tells us there is an estimated decrease of 2.79 in probability that status would be operating for the average unit increase in is_anti_wind opinion holders. For every average unit increase in pop_den, $\beta_2$ predicts 1.09e-04 will increase the operating status. The dramatic change in pop_den estimated influence on status is likely due to an interaction relationship with med_inc, which intuitively makes sense.
+
+What is interaction telling us?
+
+$\beta_3$ predicts 5.91e-05 will decrease the operating status, for an average unit increase in pop_den * is_anti_wind.
+
+Our summary table describes a null deviance 362.60.(1178 df) and residual deviance 292.12 (1175 df). Additionally, it provides a p-value of 6.52e-14 for $\beta_1$, indicating that the hypothesis here is rejected because it is drastically smaller than the significant value of 0.05. The p-value of $\beta_2$, 0.837 is acceptable because it is within range of the significant value. The p-value of $\beta_3$, 0.931 is acceptable because it is within range of the significant value.
+
+
+```{r}
+# Regression with interacting beta
+status4 <- glm(status ~ pop_den + med_inc + pop_den * med_inc, 
+                       wind_us,
+                       family = 'binomial')
+
+summary(status4)
+```
+
+##### Population Density \* Median Income
+
+FIX THE WORDS HERE
+
+##### $$ \text{status}\ = \beta_0 + \beta_1 \text{pop_den}\_i + \beta_2 \text{median_age} + \beta_3 \text{pop_den * median_age} + \varepsilon_i $$
+
+When wind turbines are operational, and all other variables are held constant at 0, the $\beta_0$ represents the estimated likelihood that `status` of a wind infrastructure plant is `operating` is \~ `4.23`.
+
+$\beta_1$ tells us there is an estimated decrease of `2.81` in probability that status would be `operating` for the average unit increase in `is_anti_wind` opinion holders.
+
+For every average unit increase in `pop_den`, $\beta_2$ predicts `1.65e-04` will increase the `operating status`, indicating `pop_den` is an extremely marginal influence, that may potentially be interacting with `is_anti_wind` outlook.
+
+$\beta_3$ predicts `1.79e-05` will decrease the `operating status`, for an average unit increase in `med_inc`.
+
+$\beta_4$ estimates an increase of `2.73e-02` in the `operating status`, for each average unit increase in `med_age`.
+
+Our summary table describes a null deviance `362.60`.(`1178 df`) and residual deviance `289.02` (`1174 df`).
+
+Additionally, it provides a p-value of `9.17e-15` for $\beta_1$, indicating that the hypothesis here is rejected because it is drastically smaller than the `significant value of 0.05`.
+
+The p-value of $\beta_2$, `0.553` is acceptable because it is within range of the significant value.
+
+The p-value of $\beta_3$, `0.096` is acceptable because it is within range of the significant value.
+
+The p-value of $\beta_4$, \~`0.370` is acceptable because it is within range of the significant value.
+
+```{r}
+# Regression with interacting beta
+status5 <- glm(status ~ pop_den + median_age + pop_den * median_age, 
+                       wind_us,
+                       family = 'binomial')
+
+summary(status5)
+```
+#-----------------------
+
+Assessing Omitted Variables Bias in OLS
+
+OLS with 2 Variables
+
+$$ \text{status}\ = \beta_0 + \beta_1 \text{pop_den}\_i + \beta_2 \text{is_anti_wind} + \varepsilon_i $$ When wind turbines are operational, and all other variables are held constant at 0, the $\beta_0$ represents the estimated likelihood that status of a wind infrastructure plant is operating is ~ 4.47. $\beta_1$ tells us there is an estimated decrease of 2.79 in probability that status would be operating for the average unit increase in is_anti_wind opinion holders. For every average unit increase in pop_den, $\beta_2$ predicts 7.6e-05 will increase the operating status, indicating pop_den is an extremely marginal influence, that may potentially be interacting with is_anti_wind outlook.
+
+Our summary table describes a null deviance 362.60.(1178 df) and residual deviance 292.13 (1176 df). Additionally, it provides a p-value of 9.5e-15 for $\beta_1$, indicating that the hypothesis here is rejected because it is drastically smaller than the significant value of 0.05. The p-value of $\beta_2$, 0.819 is acceptable because it is within range of the significant value.
+
+{r}
+# Initial regression 2 betas for null
+status2 <- glm(status ~ pop_den +  med_inc,
+                       wind_us,
+                       family = 'binomial')
+
+summary(status2)
+
+OLS with 3 Variables
+
+$$ \text{status}\ = \beta_0 + \beta_1 \text{pop_den}\_i + + \beta_2 \text{med_inc} + \beta_3 \text{median_age} + \varepsilon_i $$ When wind turbines are operational, and all other variables are held constant at 0, the $\beta_0$ represents the estimated likelihood that status of a wind infrastructure plant is operating is ~ 5.35. $\beta_1$ tells us there is an estimated decrease of 2.80 in probability that status would be operating for the average unit increase in is_anti_wind opinion holders. For every average unit increase in pop_den, $\beta_2$ predicts 1.65e-04 will increase the operating status. The dramatic change in pop_den estimated influence on status is likely due to an interaction relationship with med_inc, which intuitively makes sense. $\beta_3$ predicts 1.74e-04 will decrease the operating status, for an average unit increase in med_inc.
+
+Our summary table describes a null deviance 362.60.(1178 df) and residual deviance 289.8 (1175 df). Additionally, it provides a p-value of 1.03e-14 for $\beta_1$, indicating that the hypothesis here is rejected because it is drastically smaller than the significant value of 0.05. The p-value of $\beta_2$, 0.668 is acceptable because it is within range of the significant value. The p-value of $\beta_3$, 0.103 is acceptable because it is within range of the significant value.
+
+When wind turbines are operational, and all other variables are held constant at 0, the $\beta_0$ represents the estimated likelihood that status of a wind infrastructure plant is operating is ~ 4.23. $\beta_1$ tells us there is an estimated decrease of 2.81 in probability that status would be operating for the average unit increase in is_anti_wind opinion holders. For every average unit increase in pop_den, $\beta_2$ predicts 1.65e-04 will increase the operating status, indicating pop_den is an extremely marginal influence, that may potentially be interacting with is_anti_wind outlook. $\beta_3$ predicts 1.79e-05 will decrease the operating status, for an average unit increase in med_inc. $\beta_4$ estimates an increase of 2.73e-02 in the operating status, for each average unit increase in med_age.
+
+Our summary table describes a null deviance 362.60.(1178 df) and residual deviance 289.02 (1174 df). Additionally, it provides a p-value of 9.17e-15 for $\beta_1$, indicating that the hypothesis here is rejected because it is drastically smaller than the significant value of 0.05. The p-value of $\beta_2$, 0.553 is acceptable because it is within range of the significant value. The p-value of $\beta_3$, 0.096 is acceptable because it is within range of the significant value. The p-value of $\beta_4$, ~0.370 is acceptable because it is within range of the significant value.
+
+{r}
+# Regression with 3 beta
+status3 <- glm(status ~ pop_den + med_inc + median_age, 
+                       wind_us,
+                       family = 'binomial')
+
+summary(status3)
+
+Finding P
+
+solve for p using R.2
+
+$logit(p)=log(p/1−p)=β0+β1x+ε$
+
+toSolve <- function(p) {(1-p)*exp(1.56-0.05847*64) - p}
+
+uniroot(toSolve, interval = c(0, 1))$root
+
+
+Constructing Confidence Interval
+
+Best Fit OLS Model 6
+
+Model 6 is restricted to 1173 degrees of freedom, as output by our earlier OLS exploration. We will apply that value when constructing our 95% Confidence Intervals.
+
+{r}
+# Constructing a 95% confidence interval
+
+# critical value for 2.5% quantile
+c_val = qt(0.025, df = 1173, lower.tail = FALSE) %>% 
+  print()
+
+# confidence interval bounds
+# since we saved our ols models as objects earlier, we can call them here
+
+# using coef & SE from above to make 95% CI 
+
+ci_lower <- round(status6$coefficients[2,'Estimate'] - c_val*status6$coefficients[2,'Std. Error'], 3) %>% 
+  print()
+
+ci_upper <- round(status6$coefficients[2,'Estimate'] + c_val*status6$coefficients[2,'Std. Error'], 3) %>% 
+  print()
+
+print("The first print statment refers to intercept confidence interval, and the second print statement refers to the slope CI")
+print(paste0("95% probability that [", ci_lower_murder, " - ", ci_upper_murder, "] contains the difference in murder rates across the mean number of days that regions experienced frost vs no frost experience"))
+
+
+#ci_lower <- round(point_est - c_val*SE, 2) %>% 
+ # print()
+#ci_upper <- round(point_est + c_val*SE, 2) %>% 
+ # print()
+
+# Display output
+print(paste0("95% probability that interval [",ci_lower," ", ci_upper, "] contains the true difference in mean frost days between the North Central and South region."))
+
+
+{r}
+
+
+
+Logit
+
+Null Hypothesis
+
+After considering the glm
+
+The null states, that the wind turbine active status is unimpacted by the is_anti_wind rating.
+
+Two hypothesis presented are
+
+$H_0: \text{is_anti_wind} - \text{not_anti_wind} = 0$
+
+$H_A: \text{is_anti_wind} - \text{not_anti_wind} ≠ 0$
+
+#---------------idk
+
+{r}
+ggplot(data= wind_us, aes(x = status, y = pop_den)) + geom_jitter(alpha=0.1, size=3) + geom_smooth(method='lm', formula= y~x, color="lightcoral", se=F, size=1.5) + theme_bw() + geom_hline(yintercept=0, color="seagreen")
+
+
+Interpretting OVB
+$\text{Null Deviance} = \text{2(LL(Saturated Model)} - \text{LL(Null Model)) on df} = \text{df_Sat - df_Null}$
+
+Null deviance: tells us how well the response variable can be predicted by a model with only an intercept term.
+
+$\text {Residual Deviance} = \text{2(LL(Saturated Model)} - \text{LL(Proposed Model))} \text{df} = \text {df_Sat} - \text{df_Proposed}$
+
+Residual Deviance: tells us how well the response variable can be predicted by a model with p predictor variables.
+
+$\text {The Saturated Model is a model that assumes each data point has its own parameters (which means you have n parameters to estimate.)}$
+
+$\text {The Null Model assumes the exact "opposite", in that is assumes one parameter for all of the data points, which means you only estimate 1 parameter.}$
+
+$\text{The Proposed Model assumes you can explain your data points with p parameters + an intercept term, so you have p+1 parameters.}$
+
+When the Null Deviance is really small, it means that the Null Model explains the data pretty well. The same goes for Residual Deviance[1]. To best interpret our models, we will compare the Residual deviance.
+
+Comparing Models using anova
+
+Comparing our 6 residual deviance outputs, models 6 and 4 produced the smallest residual deviance at 288.84 and 289.02 respectively. To determine which is the best fit, we will do an anova assessment.
+
+{r}
+# this takes into consideration the predicted p value using both the null and residual deviation of each model and determines which more accurately describes the data
+model_comparison <- anova(status6, status4, test = "Chisq") 
+
+model_comparison
+
+Our best fit OLS model is our interaction model 6: $$ \text{status}\ = \beta_0 + \beta_1 \text{is_anti_wind}\_i + + \beta_2 \text{pop_den} + \beta_3 \text{med_inc} + \beta_4 \text{med_age} + \varepsilon_i $$
