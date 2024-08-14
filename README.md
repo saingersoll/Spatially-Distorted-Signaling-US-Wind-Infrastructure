@@ -1,6 +1,6 @@
 ## Spatially Distorted Signaling: How Opinions Against Wind Infrastructure Delay Our Transition to Renewable Energy
 
-### 🗃️Blog Post: [https://github.com/saingersoll/Spatially-Distorted-Signaling-US-Wind-Infrastructure](https://saingersoll.github.io/posts/2023-12-08_SDS_Wind_Infrastructure/SDS_Wind_Infrastructure.html)
+### 🗃️Blog Post: [https://github.com/saingersoll/Spatially-Distorted-Signaling-US-Wind-Infrastructure](https://saingersoll.github.io/posts/2023-12-14_SDS_Wind_Infrastructure/SDS_Wind_Infrastructure.html)
 
 ### Main Takeaways
 
