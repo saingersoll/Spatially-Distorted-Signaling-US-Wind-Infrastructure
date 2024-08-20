@@ -1,6 +1,7 @@
 ---
 title: "Spatially Distorted Signaling: How Opinions Against Wind Infrastructure Delay Our Transition to Renewable Energy"
 author: "Sofia Ingersoll"
+description: "This study aims to visualize the activity of U.S. wind power plants (2000-2016) to understand how population density, income, and anti-wind opinions impact wind plant activity. Spatial Distorted Signalling (SDS) describes the mobilization of minority opinion holders electoral push-back to promote legislation that aligns with their beliefs. The motivation for this project is to provide insights into attributes that contribute to local resistance and their effects on renewable energy development."
 editor: visual
 date: "2023-12-14"
 format:
@@ -21,8 +22,6 @@ citation:
   url: https://saingersoll.github.io/posts/SDS_Wind_Infrastructure
 image: wind_farm.png
 ---
-
-# Spatially Distorted Signaling: How Opinions Against Wind Infrastructure Delay Our Transition to Renewable Energy
 
 ### 🗃️GitHub Repo: <https://github.com/saingersoll/Spatially-Distorted-Signaling-US-Wind-Infrastructure>
 
@@ -85,7 +84,7 @@ The data source that was utilized in this project, US Wind Data, focuses on the 
 #### Variables of Interest:
 
 | Name         | Description                                                                                                                             |
-|-------------------|-----------------------------------------------------|
+|----------------------|--------------------------------------------------|
 | status       | Describes the project operating status. In this study, we have converted it into a binary variable: 1 is operating, 0 is not_operating. |
 | pop_den      | Tract-level 2010 census data for population density (per mi\^2)                                                                         |
 | med_inc      | Tract-level 2010 census data for median income (\$)                                                                                     |
@@ -584,6 +583,8 @@ ggplot(plot_data, aes(x = income_group_label,
                       fill = pop_den_group_label)) +
   geom_bar(stat = "identity", position = "dodge") +
   scale_fill_manual(values = color_palette) +
+  geom_smooth(aes(group = 1), color = "#F84C0B", size = 1, method = "loess", se = FALSE) +  # Add smooth trendline
+  
   labs(
     title = "Probability of Active Wind Power Plant Operating Status",
     subtitle = paste0("Assessing Median Income and Population Density Percentiles"),
