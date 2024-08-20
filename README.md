@@ -10,6 +10,7 @@
 
 - **Anti-Wind Infrastructure Opinion**: Effect: Areas with higher opposition to wind infrastructure are less likely to have operational wind plants. This aligns with expectations that local opposition impacts the establishment of wind plants.
 ![image](https://github.com/user-attachments/assets/2ff1a5fe-d0e3-4721-ad2c-836e7e238446)
+The world's largest wind turbine, MySE-16-260. Includes a rotor diameter of 853 feet to produce 16-megawatt, located in Pingtan, Fujian Province, China (Yang, Getty Images).
 
 ### Overview
 
