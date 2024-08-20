@@ -4,11 +4,27 @@
 
 ### Main Takeaways
 
-- **Population Density**: Effect: A unit increase in population density is associated with a slight increase in the odds of having an operational wind plant. This suggests that areas with higher population densities are marginally more likely to host wind plants and less likely to experience minority holder opinions taking the majority.
+- **Population Density:**
+A unit increase in population density is associated with a slight increase in the odds of having an
+operational wind plant. This suggests that areas with higher population densities are marginally
+more likely to host wind plants and less likely to experience minority holder opinions taking the
+majority. Therein, as urbanization and population density increase, it becomes increasingly feasible
+and advantageous for these areas to invest in and support wind energy projects.
 
-- **Median Income**: Effect: An increase in median income is linked to a decrease in the odds of having an operational wind plant. Higher income areas show a lower likelihood of wind plant activity, potentially due to different local priorities or economic factors. Uneven socio-economic power-dynamics could lead to minority opinion holders preventing the development of wind power infrastructure, alongside other renewable energy solutions.
+- **Median Income:**
+An increase in median income is linked to a decrease in the odds of having an operational wind
+plant. Higher income areas show a lower likelihood of wind plant activity, potentially due to different
+local priorities or economic factors. Uneven socio-economic power-dynamics could lead to minority
+opinion holders preventing the development of wind power infrastructure, alongside other renewable
+energy solutions. Overall, this suggests that socioeconomic factors play a significant role in shaping
+the types of renewable energy projects that are pursued and highlights the need for tailored
+strategies to address diverse community priorities in renewable energy planning.
 
-- **Anti-Wind Infrastructure Opinion**: Effect: Areas with higher opposition to wind infrastructure are less likely to have operational wind plants. This aligns with expectations that local opposition impacts the establishment of wind plants.
+- **Anti-Wind Infrastructure Opinion:**
+Areas with higher opposition to wind infrastructure are less likely to have operational wind plants.
+This aligns with expectations that local opposition impacts the establishment of wind plants.
+Therefore, addressing and mitigating local resistance is essential for enhancing the feasibility and
+acceptance of wind energy initiatives.
 ![image](https://github.com/user-attachments/assets/2ff1a5fe-d0e3-4721-ad2c-836e7e238446)
 The world's largest wind turbine, MySE-16-260. Includes a rotor diameter of 853 feet to produce 16-megawatt, located in Pingtan, Fujian Province, China (Yang, Getty Images).
 
