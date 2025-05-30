@@ -1,0 +1,667 @@
+---
+title: "Spatially Distorted Signaling: How Opinions Against Wind Infrastructure Delay Our Transition to Renewable Energy"
+author: "Sofia Ingersoll"
+description: "This study analyzed the activity of U.S. wind power plants (2000-2016) to understand how population density, median income, and anti-wind opinions impacted wind plant operations. In hopes to understand potential delays in our transition to a more sustainable future, an investigation was conducted to quantify propensities in relation to local resistance against renewable energy developments for the listed attributes."
+editor: visual
+date: "2023-12-14"
+format:
+  html:
+    code-fold: true
+    code-summary: "Show the code"
+embed-resources: true
+output:
+    html_document:
+      print_df: paged
+      toc: yes
+      toc_depth: 3
+      toc_float: yes
+categories: [Statistical Analysis, Logit, Wind Power, Energy Access, Sustainable Energy Decarbonization Transition]
+title-block-banner: true
+css: styles.scss
+citation:
+  url: https://saingersoll.github.io/posts/SDS_Wind_Infrastructure
+image: wind_farm.png
+---
+
+## Spatially Distorted Signaling: How Opinions Against Wind Infrastructure Delay Our Transition to Renewable Energy
+
+##### 🗃️GitHub Repo: <https://github.com/saingersoll/Spatially-Distorted-Signaling-US-Wind-Infrastructure>
+
+### Overview
+
+Spatial Distorted Signalling (SDS) is a term that describes the mobilization of minority opinion holders to electorally push-back and promote legislation that aligns with their beliefs (Stokes, et al, [2016](https://www.jstor.org/stable/24877466)). The SDS phenomenon has the ability to skew the accurate representation of public opinions due to effective organization practices. This leads to a disproportionate number of minority opinion holder interactions spent influencing local legislators and collective voting in smaller elections. Natural occurrences of the SDS phenomenon were recently observed in rural Canadian communities after new legislation was passed by the Green Party to incentivize large-scale wind power developments. Minority opinion holders gathered strategically to vote out the Green Party in the following election in retaliation and succeded. The policy was amended shortly after, halting new production of wind power infrastructure. Within the U.S. a number of wind plant developments have encountered similar outcomes. In this investigation, we will seek to understand how population density, median income, and anti-wind power opinions impacted wind plant operational activity (2000-2016), providing insights into local resistance and its effects on renewable energy projects.
+
+### **`Main Takeaways`**
+
+The overarching logit model analysis did not provide significant findings, but alluded to influential covariate interactions. The multivariate interaction model was leveraged to tabulate individually significant propensities. The probabilities revealed increased median income appeared to inhibit the forward progression in clean energy developments. Further exploration of the covariate interactions are encouraged with expanded datasets, as a limited amount of data was utilized for this study, restricting the sample analysis. Using what is currently available, we will interpret the socioeconomic factors in this model as they relate to real-world social and political dynamics.
+
+#### **`Population Density`**
+
+Interestingly, pro/neutral-wind power areas demonstrated an increase in population density and median income was associated with a decrease in the odds of having an operational wind power plant. It was revealed in areas with pro/neutral-wind power sentiments with the lowest income percentile were an exception and experienced an increase in the odds of an active wind plant as population density increased. Whereas in anti-wind regions, as population density increased an inverse effect was observed. Across all median income groups, anti-wind areas with higher population densities had marginally greater odds of having an active wind plant. These anti-wind findings suggested areas with lower population density are at greater risk of experiencing SDS. Both trends revealed could be an indication of the magnitude in which socioeconomic interactions influence sustainable energy developments.
+
+#### **`Median Income`**
+
+Overall, higher-income areas were found to have increased odds of deactivated wind plants. Regardless of a pro/neutral-wind power sentiment, as the median wealth increased the odds of operational activity decreased. This may be an indicator that wealthier areas are at greater risk of experiencing SDS due to disproportionate access to financial resources that influence energy policy decisions. Advantages such as wealth assist minority opinion holders when strategically lobbying to tailor policies to better align with their priorities. Uneven socioeconomic power-dynamics lead to minority opinion holders preventing the development of wind power infrastructure, alongside other renewable energy solutions. Overall, these findings suggest that socioeconomic factors play a heavily influential role in shaping renewable energy projects.
+
+#### **`Anti-Wind Infrastructure Opinion`**
+
+As suspected, areas with higher opposition to wind infrastructure were less likely to have operational wind plants. Conversely, the opposite was seen for pro/neutral-wind opinion holding areas. This aligns with expectations that local opposition and social mobilization impacts the establishment of wind plants. Therefore, addressing and mitigating local resistance is essential for enhancing the feasibility and acceptance of wind energy initiatives.
+
+![](wind_farm.png){fig-align="center" width="630"}
+
+**Figure 1**: Wind turbines on the Bishop Hill wind farm operate among the corn and soybean fields near Bishop Hill, Illinois (U.S. Department of Agriculture, 2017).
+
+### `U.S. Wind Power Plant Data`
+
+-   [Replication Data for: Prevalence and predictors of wind energy opposition in North America](https://dataverse.harvard.edu/file.xhtml?fileId=7339850&version=1.0)
+
+The data source that was utilized in this project, US Wind Data, focuses on the public stance on wind infrastructure for census tract regions within a 3 km buffer zone of a wind infrastructure project. It contains categorical variables, binary variables, continuous socioeconomic factors such as % of races, % precinct political GOP affiliated voting share, mobilization tactics, and more. For simplicity's sake, we're going to focus on the variables below.
+
+#### Variables of Interest:
+
+| Name         | Description                                                                                                                             |
+|--------------------|----------------------------------------------------|
+| status       | Describes the project operating status. In this study, we have converted it into a binary variable: 1 is operating, 0 is not_operating. |
+| pop_den      | Tract-level 2010 census data for population density (per mi\^2)                                                                         |
+| med_inc      | Tract-level 2010 census data for median income (\$)                                                                                     |
+| is_anti_wind | Binary measure of wind opposition: 1 is against wind power developments, 0 is pro wind power developments.                              |
+
+### `U.S. Wind Power Plant Locations`
+
+Before diving in, let's get a sense of where we'll be investigating.
+
+```{r map_data, message = FALSE}
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# ----       Load Libraries      ----
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# The following libraries were selected based on their functionality and ability to optimize our data for mapping.
+
+# Loading Libraries
+library(tidyverse)        # essential r package 
+library(sf)               # package simplifies spatial dataframes
+library(tmap)
+library(terra)
+library(broom)
+library(stars)
+library(sjPlot)
+library(naniar)
+library(cowplot)
+library(leaflet)
+library(maptiles)       
+library(ggthemes)
+library(ggspatial)
+library(patchwork)
+library(kableExtra)
+
+set.seed(99)
+knitr::opts_chunk$set(echo = T, warning = F, message = F)
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# ----        Read & Raster      ----
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Below we will use the package `sf` to convert the lat/long vector data 
+# into a raster geometry column. In this single line, we will also be 
+# assigning the CRS EPSG:4326 to the sf data frame.
+# Coordinate Reference Systems, CRS, are required in order for the data
+# to be projected onto a map. The CRS was selected because it 
+# provides a relatively proportionate display of the United States.
+# We are open to suggestions regarding our CRS if a different project better fits our data.
+
+# reading in & storing data
+wind_data <- read.csv("../data/wind_data/wind_data_usa.csv")  
+
+# Confirm the Data Loaded Properly
+#head(wind_data)                  # displays the first 6 rows of the data
+
+# Let's read in our data
+wind_sf <- wind_data %>%       
+  # creates geometry column with desired crs 
+  st_as_sf(coords = c("longitude", "latitude"), crs = 4326) %>% 
+  select(plant_name, everything())
+                                     
+# quick CRS check
+#glimpse(crs(wind_sf))                  # output should reveal WGS84, EPSG:4326
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# ----        Check Point!       ----
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Let's stop and see if our outputs are what we expect.
+# Were the lat/long columns correctly converted into a geometry column?
+# setdiff() is a way to quickly determine the differences between two data sets.
+
+# Sweet! we are looking good
+#setdiff(colnames(wind_sf), colnames(wind_data))
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# ----        Map Wind Plants    ----
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Using tmap(), we can visualize the locations of wind infrastructure power plants
+# throughout the United States. To achieve a more granular map, we'll need to
+# utilize another data set to create a base layer for our map in order to 
+# observe these wind plants with respect to state and county jurisdictions. 
+
+# First visual of the U.S. wind data provided by the geometry points
+# Make sure tmap is in interactive mode
+tmap_mode("view")
+
+# Create the interactive map
+tm_shape(wind_sf) +
+  tm_dots(
+    col = "darkgreen",
+    size = 0.05,
+    alpha = 0.5
+  ) +
+  tm_basemap("OpenStreetMap")
+```
+
+**Figure 2**: Toggleable map containing the US power plant data utilized for this anaylsis. Information about the area's activism, polticial sentiment, median income (\$), population composition, and more is available when clicking on a green bubble.
+
+### `Data Distribution`
+
+Before jumping into any analysis, it's important to get a sense of how the data is distributed and if there are any underlying trends or biases. We will employ a multivariate model to describe the effect of census tract level population density on the operating status of wind power infrastructure. A combination of binary and interaction logit regression will be considered. The initial model will apply OLS regression, this is really a formality to demonstrate why OLS is not the correct approach for interpreting our relationships of interest. The following will be a model with two continuous variables. These variables focus more on regionally dependent factors that intuitively seem to have an impact on mobilization variables that we don't have time to cover in this project. We'll be working with a mix of discrete and continuous data, so there some wrangling will be necessary to run the regressions we're interested in.
+
+```{r indicator_var_wrangle_activity_distribution_visuals, fig.width=36, fig.height=18, message = FALSE}
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# ---- Inspect & Standarize Data ----
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Determining Variable Assignments for OLS
+#unique(wind_sf$status)     # displays unique values in this
+
+# Need to rename status output variables
+# creating two categories: operating & not_operating
+# We are removing 'Operating | Decommissioned' because it skews the data
+unwanted_status <- "Operating | Decommissioned"
+replacement_status <- "Uncertain Status"
+wind_sf$status[wind_sf$status== unwanted_status]<-"Uncertain Status"  
+
+# were we successful ?
+#unique(wind_sf$status)     # displays unique values in this
+
+# cleaning out NAs for OLS
+wind_sf <- wind_sf %>%
+  filter(is.na(status) == 'FALSE') %>% 
+  filter(is.na(is_anti_wind) == 'FALSE') %>% 
+  filter(is.na(pop_den) == 'FALSE') %>% 
+  filter(is.na(med_inc) == 'FALSE') %>% 
+  filter(is.na(median_age) == 'FALSE') %>% 
+  filter(is.na(n_turbs) == 'FALSE')
+
+# were we successful ?
+#unique(wind_sf$status)     # displays unique values in this
+
+# if_else preserves the data type but replaces unwanted values
+wind_us <- wind_sf %>% 
+  mutate(status = if_else(
+    status %in% c('Cancelled', 'Out of service (temporarily)', 'Standby', 'Decommissioned', 'Uncertain Status'), 'not_operating',
+    'operating') 
+  )
+
+# are our only outputs "operating" and "not_operating"?
+#print(unique(wind_us$status))
+
+# status as factor and reassigned values
+wind_us <- wind_us %>% 
+  mutate(status = case_when(status == "operating" ~ 1,
+            status == "not_operating" ~ 0))
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# ----        Check point!       ----
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# are our only outputs 0 or 1?
+#paste("The indicator column contains", {unique(wind_us$status)})
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# ----           Violin Distribution          ----
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Create the violin plot with log scale
+density_plot <- ggplot(data = wind_us, 
+                       aes(x = factor(status), 
+                           y = pop_den, 
+                           fill = factor(status))) + 
+  
+  geom_violin(alpha = 0.6, color = "darkblue") + 
+  
+  geom_jitter(col = "#F84C0B",
+              width = 0,
+              height = 0.05,
+              alpha = 0.35,
+              size = 4) +
+  
+  labs(title = "Population Density vs Wind Power Plant Operating Status",
+       subtitle= "Logorithimic Distribution",
+       x = "Activation Status",
+       y = expression("Population Density (Log Scale, " ~ mi^-2 ~ ")")) + 
+  
+  
+  # rename x-axis labels for clarity
+  scale_x_discrete(labels = c("0" = "Inactive", "1" = "Active")) +  
+  # Apply logarithmic scale to y-axis
+  scale_y_log10() + 
+  
+  theme_538() + 
+  
+  scale_fill_manual(values = c("skyblue", "darkblue")) +
+  
+  # Adjust title font and alignment
+  theme(plot.title = element_text(size = 40,
+                                  family = "Georgia", 
+                                  face = "bold",
+                                  hjust = .99,
+                                  color ="#293F2C"),  
+        
+        # Adjust subtitle font and alignment
+        plot.subtitle = element_text(size = 38,
+                                     family = "Georgia",
+                                     color ="#293F2C",
+                                     hjust = 0.5), 
+        
+        axis.title = element_text(size = 36,
+                                  family = "Georgia",
+                                  color ="#293F2C"),
+        
+        axis.text = element_text(size = 34,
+                                 family = "Georgia",
+                                  color ="#293F2C"),
+        
+         # Move legend to the bottom
+        legend.position = "top", 
+        
+        # Remove legend title if not needed
+        legend.title = element_blank(),  
+        
+        # Adjust legend text size
+        legend.text = element_text(size = 34,
+                                   family = "Georgia",
+                                   color ="#293F2C"), 
+        
+         # Background color for legend
+        legend.key = element_rect(fill = "grey94", color = "grey94"), 
+        
+        plot.background = element_rect(color = "#FDFBF7")
+        ) +  
+  
+  coord_flip()
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# ----        Jitter OLS + GLM                ----
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Optimized jitter plot with smooth lines
+jitter_plot_optimized <- ggplot(data = wind_us, 
+                                aes(x = pop_den, 
+                                    y = status)) + 
+  
+  # assign color to legend 
+ geom_jitter(aes(color = "Data Points"),
+              width = 0,
+              height = 0.05,
+              alpha = 0.6,
+              size = 4) +  # Adjusted size for better visibility
+  
+  geom_smooth(method = "lm",
+              se = FALSE,
+              aes(color = "OLS Line"),
+              size = 1.2,  # Slightly thicker line for visibility
+              linetype = "solid") + 
+  
+  geom_smooth(method = "glm",
+              se = T,
+              aes(color = "GLM Line"),
+              size = 1.2,
+              linetype = "dashed",
+              method.args = list(family = "binomial")) +
+  
+  labs(title = "Population Density vs Wind Power Plant Operating Status",
+      subtitle= "Logorithimic Distribution Regression Comparison",
+       y = "Activation Status",
+       x = expression("Population Density (Log Scale, " ~ mi^-2 ~ ")")) + 
+  
+  # rename yaxis labels for clarity
+  scale_y_continuous(breaks = c(0, 1),
+                     labels = c("0" = "Inactive", "1" = "Active")) + 
+  
+  scale_x_log10() + 
+  
+  theme_538() +
+  
+  # Adjust title font and alignment
+  theme(plot.title = element_text(size = 40,
+                                  family = "Georgia", 
+                                  face = "bold",
+                                  hjust = .99,
+                                  color ="#293F2C"),  
+        
+        # Adjust subtitle font and alignment
+        plot.subtitle = element_text(size = 38,
+                                     family = "Georgia",
+                                     hjust = 0.5,
+                                     color ="#293F2C"), 
+        
+        axis.title = element_text(size = 36,
+                                  family = "Georgia",
+                                  color ="#293F2C"),
+        
+        axis.text = element_text(size = 34,
+                                 family = "Georgia",
+                                  color ="#293F2C"),
+        
+         # Move legend to the bottom
+        legend.position = "top", 
+        
+        # Remove legend title if not needed
+        legend.title = element_blank(),  
+        
+        # Adjust legend text size
+        legend.text = element_text(size = 34,
+                                   family = "Georgia",
+                                  color ="#293F2C"), 
+        
+         # Background color for legend
+        legend.key = element_rect(fill = "grey94", color = "grey94"), 
+        
+        plot.background = element_rect(color = "#FDFBF7")
+        ) +   
+  
+   scale_color_manual(name = "Legend",  # Title for the legend
+                     values = c("Data Points" = "#F84C0B", 
+                                "OLS Line" = "blue", 
+                                "GLM Line" = "skyblue"),
+                     labels = c("Data Points" = "Data Points", 
+                                "OLS Line" = "OLS Line", 
+                                "GLM Line" = "GLM Line"))
+
+
+# Combine plots horizontally
+combined_plot <- density_plot + 
+                  jitter_plot_optimized + 
+  # Arrange plots side-by-side
+                  plot_layout(ncol = 2)  
+
+combined_plot
+```
+
+**Figure 3**: The two visual aids above contain violin plot with jitter points (left) and a comparative regression plot using OLS and GLM (right). The x-axis is the population density and the y-axis is the operational status for the wind power plant. **Binary indicator variable will be `status` column `active` is 1, and `inactive` will be 0.** Combining two figures provides us fuller insights into both the general trend and changes in probability of the binary outcome for the population density predictor.
+
+The visualizations display the majority of the distribution lies within the actively operating wind infrastructure plants. This is an early indication of the degree of sample bias influencing our analysis. A trend of inactive plants and lower population density is notable in both figures. Collectively they demonstrate smaller population densities contain more inactive wind infrastructure plants. This could be attributed to with weight of a singular vote in regions with smaller demographics. Local mobilization of minority opinion holders in these regions have a greater availability to push back against policymakers. However, this visual does not encapsulate all of the necessary information required to determine this with full certainty. Our data set has low availability for non-operating infrastructure and as such, in the regression figure on the right these are being treated as outliers.
+
+### Odds Ratio for a Logit Model
+
+To interpret the model, we compute the odds ratios for each coefficient, providing insight into how each variable and its interactions affect wind plant activity.
+
+$$\operatorname{logit}(p)=\log \left(\frac{p}{1-p}\right)=\beta_0+\beta_1  (Population Density) * \beta_2  (Median Income) * \beta_3  (AntiWindOpinion) +\varepsilon $$
+
+The Summary of Coefficients Table provides a comprehensive view of how each variable and their interactions contribute to the likelihood of wind plant activity, facilitating a better understanding of the model's results (Table 1). For those less familiar with interpreting multivariate relationships:
+
+-   Estimations reveal the model's predicted effect on the activity status from a single unit increase in a variable. Another way to interpret this is using the odds ratio to understand the individual effects of each variable on the likelihood of having an active wind plant. The interaction terms show how the relationship between each pair of variables influences the odds of operational wind plant activity.
+
+-   For instance, the interaction between pop_den:is_anti_wind captures how wind plant operational activity is affected with each unit increase in population density in areas with anti-wind power sentiment. In the instance of this dataset for this interaction model, an insignificant decrease in the odds of an activate wind plant was observed as population increases in anti-wind power areas. However, this is for the overall model and invites further exploration into how different socioeconomic groups vary in propensity for an active wind plant.
+
+```{r comprehensive_model}
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# ----     Comprehensive Model   ----
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Fit the comprehensive model
+comprehensive_model <- glm(status ~ pop_den * med_inc * is_anti_wind,
+                           data = wind_us,
+                           family = 'binomial')
+
+# Get summary object to extract p-values and standard errors
+model_summary <- summary(comprehensive_model)
+coef_table <- model_summary$coefficients
+
+# Build the summary data frame
+coef_summary <- data.frame(
+  Term = rownames(coef_table),
+  Estimate = coef_table[, "Estimate"],
+  Std_Error = coef_table[, "Std. Error"],
+ # z_value = coef_table[, "z value"],
+  p_value = coef_table[, "Pr(>|z|)"],
+  Odds_Ratio = exp(coef_table[, "Estimate"])
+)
+
+# Round and style the table
+kable(coef_summary, format = "html", digits = 4, caption = "Table 1: Summary of Coefficients, Odds Ratios, and P-values") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"),
+                position = "center", font_size = 12)
+
+```
+
+### Operation Activity Trends
+
+Our analysis of wind plant activity using logistic regression models has provided valuable insights into the factors influencing the presence of operational wind plants.The probability distribution of having an active local wind plant across different population density and median income quantiles reveals some notable trends:
+
+```{r fig.width=10, fig.height=5}
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# ----       GLM Prob by Cat     ----
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Quantile grouping (0–25%, 25–50%, 50–75%, 75–100%)
+wind_us <- wind_us %>%
+  mutate(
+    income_q = ntile(med_inc, 4),
+    density_q = ntile(pop_den, 4),
+      income_label = factor(
+      paste0(seq(25, 100, by = 25)[income_q], "%"),
+      levels = paste0(seq(25, 100, by = 25), "%")
+    ),
+    density_label = factor(
+      paste0("Percentile ", seq(25, 100, by = 25)[density_q], "%"),
+      levels = paste0("Percentile ", seq(25, 100, by = 25), "%")
+    ),
+    anti_label = ifelse(is_anti_wind == 1, "Anti-Wind", "Pro/Neutral")
+  )
+
+# Predict probabilities
+wind_us$predicted_prob <- predict(comprehensive_model, newdata = wind_us, type = "response")
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# ----  GLM Visualation by Cat   ----
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Average predicted probability per group
+plot_data <- wind_us %>%
+  group_by(income_label, density_label, anti_label) %>%
+  summarise(probability = mean(predicted_prob, na.rm = TRUE), .groups = "drop") %>%
+  mutate(income_numeric = as.numeric(factor(income_label, levels = unique(income_label))))
+
+# visualize the data
+ggplot(plot_data, aes(x = income_label, y = probability, fill = density_label)) +
+  # color by density side by side
+  geom_bar(stat = "identity", position = "dodge") +
+  # split by opinion
+  facet_wrap(~ anti_label) +
+  # add lm trendline to more easily interpret
+  geom_smooth(aes(x = income_numeric, y = probability, group = density_label),
+              method = "lm", color = "#F84C0B", se = FALSE, size = 1) +
+  # color palette for pop den
+  scale_fill_manual(
+    values = c("#cae6f2", "#7abbe2", "#2a7fb8", "#084081"),
+    name = "Pop Density Quantile"
+  ) +
+  # customs
+  labs(
+    title = "Predicted Probability of Active Wind Infrastructure Projects",
+    subtitle = "By Median Income Percentile, Population Density Percentile, and Wind Energy Sentiment",
+    x = "Median Income Percentile Group",
+    y = "Predicted Probability"
+  ) +
+ theme_minimal() +
+  theme(
+    text = element_text(family = "Georgia", size = 22),
+    axis.text.x = element_text(size = 12),
+    axis.text.y = element_text(size = 14),
+    axis.title.x = element_text(size = 16),
+    axis.title.y = element_text(size = 16),
+    plot.title = element_text(size = 22, face = "bold", hjust = 1.3),
+    plot.subtitle = element_text(size = 18, hjust = 1.1),
+    legend.position = "top",
+    legend.title = element_text(size = 16),
+    legend.text = element_text(size = 14),
+    legend.key.size = unit(0.5, "cm"),
+    legend.spacing.x = unit(0.2, "cm"),
+    legend.spacing.y = unit(0.2, "cm"),
+    legend.background = element_rect(fill = "white", color = "grey100", size = 0.5)
+  ) +
+  guides(fill = guide_legend(title = expression("Population Density (Log Scale, " ~ mi^-2 ~ ")"), 
+                             title.position = "top",
+                             title.hjust = 0.5))
+```
+
+**Figure 4**: Side-by-side bar graphs demonstrating the relationships between population density (color of bars), median income percentiles (x-axis), and the predicted probability of an active wind plant status (y-axis). The graph on the left are the anti-wind opinion areas and the graph on the right are the pro/neutral-wind opinion areas. The orange trend line in each respective graph is the logit model fit.
+
+### **`The Big Question`**
+
+**May an assumption be made that regardless of population density, areas with higher median income have a greater propensity for inactive wind power plants and are more at risk of experiencing spatially distorted signalling?**
+
+To answer this, let's touch a bit on the social psychology at potentially at play.
+
+```{r wind_plant_activity_map}
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# ----  Plant Acitivity Visual   ----
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# MRS. Robinson approach: matching, restriction,
+# stratification, regression
+
+# Summarize grouped probabilities
+groupwise_propensity <- wind_us %>%
+  group_by(income_label, density_label, anti_label) %>%
+  summarise(
+    # model-based probability // propensity score
+    propensity_score = mean(predicted_prob),
+    # actual treatment rate // where treatment is an active plant
+    observed_active_status = mean(status), 
+    # number of units in group
+    n = n(),
+    # p-test
+    p_value = prop.test(round(mean(status) * n()), n())$p.value,
+    .groups = "drop"
+  ) %>%
+  rename(
+    `Income Percentile`  = income_label,
+    `Population Density Percentile` = density_label,
+    `Wind Opinion` = anti_label,
+    `Estimated Probability of Active Wind Plant` = propensity_score,
+    `Observed Wind Plant Status Rate` = observed_active_status,
+    Count = n,
+    `p-value` = p_value
+  )
+
+# Expand multipoints into points — each point gets repeated attributes
+prob_points <- groupwise_propensity %>% st_cast("POINT")
+
+# Create color palette
+pal <- colorFactor(
+  palette = c("#E1BE6A", "#40B0A6"),
+  domain = prob_points$`Wind Opinion`
+)
+
+# Create popup content for each point
+popup_content <- paste0(
+  "<strong>Income Percentile:</strong> ", prob_points$`Income Percentile`, "<br>",
+  "<strong>Population Density Percentile:</strong> ", prob_points$`Population Density Percentile`, "<br>",
+  "<strong>Wind Opinion:</strong> ", prob_points$`Wind Opinion`, "<br>",
+  "<strong>Estimated Probability of Active Wind Plant:</strong> ", round(prob_points$`Estimated Probability of Active Wind Plant`, 3), "<br>",
+  "<strong>Observed Wind Plant Status Rate:</strong> ", round(prob_points$`Observed Wind Plant Status Rate`, 3), "<br>",
+  "<strong>Count:</strong> ", prob_points$Count
+)
+
+leaflet(prob_points) %>%
+  addTiles() %>%
+  addCircleMarkers(
+    color = ~pal(`Wind Opinion`),
+    radius = 6,
+    stroke = FALSE,
+    fillOpacity = 0.7,
+    popup = popup_content
+  ) %>%
+  addLegend(
+    "bottomright",
+    pal = pal,
+    values = ~`Wind Opinion`,
+    title = "Wind Opinion",
+    opacity = 1
+  )
+```
+
+**Figure 5**: Toggleable map of the wind power plants colored by local energy-sentiments (anti-wind is yellow, pro/neutral is blue). Clicking a bubble will reveal the respective percentiles for the area's categorized covariates, the propensity score for an active wind plant, observed wind plant activity rate, and the number of matching observations within the dataset.
+
+#### **`Donations, Lobbying, and Political Mobilization`**
+
+-   Addressing this question involves acknowledging the power that is associated with financial freedom and expendable resources. Higher-income individuals typically have more resources and time to engage in political activities, make substantial donations to lobbying groups, as well as subsidize political campaigns to promote specific agendas (McCright, & Dunlap, 2011, p. 402). This financial influence can interfere the development and implementation of local energy projects. Wealthier communities may prioritize different types of energy projects based on their personal economic and environmental goals. They may lobby to invest in more traditional energy options rather than large-scale sustainability projects (Wolsink, 2007). Propensity scores for this multivariate analysis displayed downward trends in wind plant activity as the median income increased, align with this line of thinking, potentially revealing broader underlining patterns of power and influence at work. As intuitively expected, high-income areas throughout the population density spectrum had the lowest likelihood of having an active local wind plant. This observation is intriguing and suggests that higher income alone may decrease the probability of wind power plant activity.
+-   Higher-income groups may have different priorities or less immediate needs for resilent infrastructure compared to lower-income communities. A study on socioeconomic dynamics found socioeconomic status significantly affects individuals' environmental attitudes and policy preferences (McCright & Dunlap, 2011, p. 402). Areas with higher incomes may prioritize other forms of energy or infrastructure development based on their resources and political connections. One reasoning behind this may be that wealthier communities often have different priorities or face different economic constraints, which can affect their engagement with renewable energy projects (Stokes & Breetz, 2018). The trend observed in this analysis demonstrated wealthier communities had a decrease in the probability of having an active wind plant. These insights align with the notion that economic power and market conditions influence decisions related to energy infrastructure (Kirschen & Strbac, 2004, p. 112). A reason for this may be preexisiting access to alternative energy solutions, reducing the pressure to immediately implement wind infrastructure.
+-   Public opposition is an influencing factor in the siting and development of wind energy projects. As suspected, areas with higher opposition to wind infrastructure are less likely to have operational wind plants. Community opposition is a well-documented barrier to wind energy deployment, local resistance can severely impact the implementation of wind energy projects (Krohn & Damborg, 1999). Community attitudes play a crucial role in the success of wind projects, with higher opposition correlating with reduced likelihood of project success (Wolsink, 2007). Those with expendable resources are able to spend their time organizing, mobilizing, and protesting legislation rather than working to make ends meet like majority opinion holders. Addressing barriers preventing lower-earning community members from participating politically is essential for enhancing the feasibility of wind energy initiatives, as well as understanding minority opinion motivation to resist clean energy developments.
+
+### Probability of Active Wind Plant Status by Socioeconomic Groups
+
+```{r wind_prob_tables}
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# ---- Wind Sentiment Tables   ----
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Split into two tables by Wind Opinion
+prob_summary_yes <- groupwise_propensity %>% filter(`Wind Opinion` == "Anti-Wind")
+prob_summary_no <- groupwise_propensity %>% filter(`Wind Opinion` == "Pro/Neutral")    
+
+# Display the table for "Anti-wind"
+kable(prob_summary_yes, format = "html", digits = 3,
+      caption = "Table 2: Probability of Active Wind Plant by Income and Population Density (Anti-Wind Opinion)") %>%
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed", "responsive"),
+    position = "center",
+    font_size = 12
+  )
+
+# Display the table for "Pro/Neutral Wind"
+kable(prob_summary_no, format = "html", digits = 24,
+      caption = "Table 3: Probability of Active Wind Plant by Income and Population Density (Pro/Neutral-Wind Opinion)") %>%
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed", "responsive"),
+    position = "center",
+    font_size = 12
+  )
+```
+
+### Model Considerations
+
+It is important to note that there was heavy bias towards operational wind plants within the dataset, as observed in the data distribution visualization and in Summary Coefficients Table (Figure 1, Table 1). The table described a baseline 60% odds ratio of having an operational wind plant. The overall model did not provide significant findings, but encouraged deeper exploration of the data. When interpreting the model on a more granular level, the p-values across all combinations of the pro/neutral-wind percentile probabilities were found to be highly significant (\*\*p \< 0.001), and roughly half of the anti-wind probabilities were found to be significant (\*\*p \< 0.05). Although the propensity scores illuminated some trends relating higher median income and lower wind plant operational activity, these results are not statistically bolstered enough to use as strong conclusions. The lack of significance across the board suggests there may be insufficient evidence to definitively assess the impact of these variables on wind plant activity. This interpretation is intended to be used as starting point for deeper analysis.
+
+#### Techniques Applied
+
+-   `Multivariate Logit Regression Models`
+
+-   `Logit & Log Odds Ratio`
+
+-   `Average Probability with p-test`
+
+#### Limitations
+
+-   `Insufficient Data & Omitted Variable Bias (OVB)`
+
+    The data set may lack comprehensive factors affecting wind plant activity, such as specific local policies or environmental conditions.The analysis is limited by omitted variables which may be additionally influence wind plant activity. Ensuring the exogeneity of variables is challenging, and logistic regression models do not account for all underlying factors.
+
+-   `Ethical Critiques`
+
+    This is not an appropriate analysis to use for definitive decision making, rather it is an introspection on influencing socioeconomic dyanmics at hand. It is not a complete representation of the populous and requires additional data to support trends discussed in the paper.
+
+### Future Works Considerations
+
+If given the opportunity, I would expand my analysis to include a more thorough social science approach, inspecting counter-factual groups and their respective propensity scores to have an active wind power plant. I would utilize supplemental datasets to explore in greater detail exogenity to best determine which values are likely interacting and produce the best model fit. Bolstering the analysis by identifying and including relevant variables to address the omitted variables bias present in the current statistical exploration. By expanding the dataset and refining the model, the analysis could better represent the dynamics influencing the employment sustainable wind power plants.
+
+## References
+
+#### Data Citation
+
+**Replication Data for: Prevalence and Predictors of Wind Energy Opposition in North America**: DOI [10.7910/DVN/LE2V0R](https://doi.org/10.7910/DVN/LE2V0R)
+
+-   **Collaborators**: Leah Stokes, Emma Franzblau, Jessica R. Lovering, Chris Miljanich
+
+-   **Source**: American Wind Association, Columbia Sabin Center
+
+#### Citations
+
+```         
+1. Stokes, Leah C. “Electoral Backlash against Climate Policy: A Natural Experiment on Retrospective Voting and Local Resistance to Public Policy.” American Journal of Political Science, vol. 60, no. 4, 2016, pp. 958–74. JSTOR, http://www.jstor.org/stable/24877466. Accessed 30 November 2023.
+2. “U.S. Department of Agriculture.” Flickr, www.flickr.com/photos/usdagov.
+3. Stokes, Leah C., et al. "Prevalence and Predictors of Wind Energy Opposition in North America." Proceedings of the National Academy of Sciences, vol. 120, no. 40, Sept. 2023, doi:10.1073/pnas.2302313120.
+4. McCright, A. M., & Dunlap, R. E. (2011). The Politicization of Climate Change and Polarization in the American Public's Views of Global Warming. Society & Natural Resources, 24(5), 398-413.
+5. Wolsink, M. (2007). "Wind power implementation: The nature of public beliefs and the social acceptance of renewable energy". Renewable and Sustainable Energy Reviews, 11(6), 1586-1603. doi:10.1016/j.rser.2005.10.001
+6. Stokes, L. C., & Breetz, H. L. (2018). Public opinion and wind energy: The impact of socio-economic factors on policy support*. Environmental Politics, 27(1), 1-22. doi:10.1080/09644016.2017.1387160
+7. Kirschen, D. S., & Strbac, G. (2004). Fundamentals of Power System Economics. Wiley.
+8. Krohn, S., & Damborg, S. (1999). Public attitudes towards wind power. Renewable Energy, 16(1), 954-960. doi:10.1016/S0960-1481(98)00339-5
+```
