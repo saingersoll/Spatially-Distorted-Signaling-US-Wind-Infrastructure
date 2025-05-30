@@ -7,7 +7,7 @@
 Spatial Distorted Signalling (SDS) is a term that describes the mobilization of minority opinion holders to electorally push-back and promote legislation that aligns with their beliefs (Stokes, et al, 2016). The SDS phenomenon has the ability to skew the accurate representation of public opinions due to effective organization practices. This leads to a disproportionate number of minority opinion holder interactions spent influencing local legislators and collective voting in smaller elections. Natural occurrences of the SDS phenomenon were recently observed in rural Canadian communities after new legislation was passed by the Green Party to incentivize large-scale wind power developments. Minority opinion holders gathered strategically to vote out the Green Party in the following election in retaliation and succeded. The policy was amended shortly after, halting new production of wind power infrastructure. Within the U.S. a number of wind plant developments have encountered similar outcomes. In this investigation, we will seek to understand how population density, median income, and anti-wind power opinions impacted wind plant operational activity (2000-2016), providing insights into local resistance and its effects on renewable energy projects.
 
 ![image](https://github.com/user-attachments/assets/2a6f6d06-4074-48c8-bd7b-7f83160059d7)
-Figure: Wind turbines on the Bishop Hill wind farm operate among the corn and soybean fields near Bishop Hill, Illinois (U.S. Department of Agriculture, 2017).
+Figure 1: Wind turbines on the Bishop Hill wind farm operate among the corn and soybean fields near Bishop Hill, Illinois (U.S. Department of Agriculture, 2017).
 
 ### `Main Takeaways`
 
@@ -22,6 +22,12 @@ Overall, higher-income areas were found to have increased odds of deactivated wi
 
 #### `Anti-Wind Infrastructure Opinion`
 As suspected, areas with higher opposition to wind infrastructure were less likely to have operational wind plants. Conversely, the opposite was seen for pro/neutral-wind opinion holding areas. This aligns with expectations that local opposition and social mobilization impacts the establishment of wind plants. Therefore, addressing and mitigating local resistance is essential for enhancing the feasibility and acceptance of wind energy initiatives.
+
+![image](https://github.com/user-attachments/assets/1625ee14-be9e-4626-a162-ee899add1b18)
+Figure 2: Map of the U.S. wind power plants colored by local energy-sentiments (anti-wind is yellow, pro/neutral is blue).
+
+![image](https://github.com/user-attachments/assets/b66ec475-f468-446a-b1fd-feea3f2cf16a)
+Figure 3: Side-by-side bar graphs demonstrating the relationships between population density (color of bars), median income percentiles (x-axis), and the predicted probability of an active wind plant status (y-axis). The graph on the left are the anti-wind opinion areas and the graph on the right are the pro/neutral-wind opinion areas. The orange trend line in each respective graph is the logit model fit.
 
 ### U.S. Wind Power Plant Data
 
