@@ -550,8 +550,13 @@ groupwise_propensity <- wind_us %>%
   )
 # we want to know our plant names when we map, so doing a minimal join
 groupwise_propensity <- st_join(x = groupwise_propensity, y = wind_us[, "plant_name"]) %>% 
+  # clean up the name
   rename(`Plant Name` = plant_name) %>% 
-  select(`Plant Name`,`Estimated Probability of Active Wind Plant`,`Observed Wind Plant Status Rate`, `Income Percentile`, `Population Density Percentile`, `Wind Opinion`, `No. Matching Areas`,`p-value`)
+  # reorder for a more informative table 
+  select(`Plant Name`,`Estimated Probability of Active Wind Plant`,
+         `Observed Wind Plant Status Rate`, `Income Percentile`, 
+         `Population Density Percentile`, `Wind Opinion`, 
+         `No. Matching Areas`,`p-value`)
 
 # expand multipoints into points 
 # each point gets repeated attributes
